@@ -1,6 +1,6 @@
 # VayuSathi — AI-Powered Neighborhood Air Quality & Health Platform
 
-**Predicting neighborhood-level air pollution before, during, and after Diwali — and telling you exactly what to do about it.**
+**Predicting neighborhood-level air pollution before, during, and after Diwali and telling you exactly what to do about it.**
 
 VayuSathi is an all-in-one platform that combines **historical air-quality data**, **weather conditions**, **traffic/cyclical indicators**, and **ML forecasting** to predict air pollution at the neighborhood (monitoring-station) level across the NCR–Punjab–Haryana region. Around it wraps a complete **health companion**: live AQI, interactive pollutant reports, respiratory-health education, guided breathing exercises, herbal teas & home remedies, and a directory of nearby doctors and ENT specialists.
 
@@ -17,7 +17,7 @@ Air pollution in Delhi-NCR, Punjab and Haryana spikes dramatically around Diwali
 
 ---
 
-## ✨ Features
+## Features
 
 ### 1. Live AQI Dashboard (Backend-pushed over WebSocket)
 - CPCB-standard **AQI computation** (PM2.5, PM10, NO₂, SO₂, CO sub-indices → overall AQI + category).
@@ -73,7 +73,34 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the full system design.
 
 ---
 
-## 🚀 Quick Start
+##  API Overview
+
+| Endpoint | Type | Description |
+|---|---|---|
+| `/ws` | WebSocket | Live push: latest readings + AQI + forecast, every 10 min |
+| `/api/health` | GET | Service status |
+| `/api/stations` | GET | Station metadata (id, city, lat/lon) |
+| `/api/current` | GET | Latest reading + computed AQI + advisory for all/one station |
+| `/api/history?station=&hours=` | GET | Historical time series for charts |
+| `/api/forecast?station=&hours=48` | GET | ML forecast (AQI, PM2.5) |
+| `/api/diwali` | GET | Historical before/during/after-Diwali climatology |
+| `/api/articles` | GET | Curated respiratory-health article references |
+| `/api/doctors` | GET | Doctor / ENT specialist directory |
+| `/api/remedies` | GET | Herbal teas & home remedies |
+
+
+---
+
+## How prediction works
+
+1. **Feature engineering** — per station: pollutant lags (1 step, 24 h), weather lags, rolling means, hour sin/cos, month, day-of-year, wind components, precipitation, humidity, plus **Diwali-proximity flags** (days to Diwali, firecracker-season window).
+2. **Targets** — `pm25_ugm3` and CPCB-computed `AQI` at the next time step (3 h ahead), plus a direct 24 h-ahead head.
+3. **Model** — `HistGradientBoostingRegressor` (nonlinear, robust to missing values), one model per target, trained on **time-ordered** train/test splits (no leakage).
+4. **Serving** — the backend iteratively rolls the model forward to produce a **48-hour trajectory**, which is attached to every WebSocket push and exposed at `/api/forecast`.
+5. **Evaluation** — MAE/RMSE/R² reported in `ml/artifacts/metrics.json` after training.
+
+---
+## Quick Start
 
 ```bash
 # 1. Create environment & install dependencies
@@ -88,7 +115,7 @@ python -m ml.train
 uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-Open **http://localhost:8000** 🎉
+Open **http://localhost:8000** 
 
 ### Configuration (environment variables)
 
@@ -105,68 +132,3 @@ WS_BROADCAST_INTERVAL=120 uvicorn backend.main:app --port 8000
 ```
 
 ---
-
-## 📡 API Overview
-
-| Endpoint | Type | Description |
-|---|---|---|
-| `/ws` | WebSocket | Live push: latest readings + AQI + forecast, every 10 min |
-| `/api/health` | GET | Service status |
-| `/api/stations` | GET | Station metadata (id, city, lat/lon) |
-| `/api/current` | GET | Latest reading + computed AQI + advisory for all/one station |
-| `/api/history?station=&hours=` | GET | Historical time series for charts |
-| `/api/forecast?station=&hours=48` | GET | ML forecast (AQI, PM2.5) |
-| `/api/diwali` | GET | Historical before/during/after-Diwali climatology |
-| `/api/articles` | GET | Curated respiratory-health article references |
-| `/api/doctors` | GET | Doctor / ENT specialist directory |
-| `/api/remedies` | GET | Herbal teas & home remedies |
-
----
-
-## 📁 Project Structure
-
-```
-.
-├── README.md                      # This file
-├── ARCHITECTURE.md                # Full system architecture
-├── requirements.txt
-├── ncr_punjab_haryana_weather_aqi_2020_2025.csv
-├── backend/
-│   ├── main.py                    # FastAPI app: REST + WebSocket + static hosting
-│   ├── aqi.py                     # CPCB AQI computation + health advisories
-│   ├── feed.py                    # Dataset loader / latest & historical readings
-│   └── forecast.py                # ML model loader + 48h forecast service
-├── ml/
-│   ├── train.py                   # Training pipeline (per-station features → models)
-│   └── artifacts/                 # model.joblib, metrics.json, feature spec
-└── static/
-    ├── index.html                 # Single-page interactive website
-    ├── css/styles.css
-    └── js/app.js                  # Dashboard, charts, health corner, WebSocket client
-```
-
----
-
-## 🧠 How prediction works
-
-1. **Feature engineering** — per station: pollutant lags (1 step, 24 h), weather lags, rolling means, hour sin/cos, month, day-of-year, wind components, precipitation, humidity, plus **Diwali-proximity flags** (days to Diwali, firecracker-season window).
-2. **Targets** — `pm25_ugm3` and CPCB-computed `AQI` at the next time step (3 h ahead), plus a direct 24 h-ahead head.
-3. **Model** — `HistGradientBoostingRegressor` (nonlinear, robust to missing values), one model per target, trained on **time-ordered** train/test splits (no leakage).
-4. **Serving** — the backend iteratively rolls the model forward to produce a **48-hour trajectory**, which is attached to every WebSocket push and exposed at `/api/forecast`.
-5. **Evaluation** — MAE/RMSE/R² reported in `ml/artifacts/metrics.json` after training.
-
----
-
-## ⚠️ Disclaimer
-
-VayuSathi is an **educational/prototype health-information platform**, not a medical device. AQI forecasts are statistical estimates — always follow official CPCB/CMO advisories for emergencies. Doctor listings are a curated starting point for discovery; **verify timings, availability and contact details before visiting**.
-
----
-
-## 🗓️ Roadmap
-
-- [ ] Real-time ingestion from CPCB/OpenAQ APIs to replace replayed historical data
-- [ ] Geospatial (leaflet) neighborhood heatmap
-- [ ] SMS/WhatsApp alerts when forecast crosses "Severe" AQI
-- [ ] Multilingual UI (Hindi/Punjabi/Haryanvi)
-- [ ] User accounts with personal health profiles (asthma/COPD flags)
