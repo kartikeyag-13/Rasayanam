@@ -1,6 +1,6 @@
-# 🏗️ Rasaynam — System Architecture
+#  Rasayanam — System Architecture
 
-This document describes the complete architecture of the Rasaynam platform: an AI-powered neighborhood air-pollution prediction and health-advisory system for the NCR–Punjab–Haryana region, focused on the Diwali pollution cycle.
+This document describes the complete architecture of the Rasayanam platform: an AI-powered neighborhood air-pollution prediction and health-advisory system for the NCR–Punjab–Haryana region, focused on the Diwali pollution cycle.
 
 ---
 
@@ -10,7 +10,7 @@ This document describes the complete architecture of the Rasaynam platform: an A
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                                DATA LAYER                                       │
 │                                                                                 │
-│  Historical training / chart dataset (2020–2025)                               │
+│  Historical training/chart dataset (2020–2025)                               │
 │  Open-Meteo Air Quality API (CAMS) + Weather API for current model-grid inputs  │
 │  (46,848 rows · 3-hourly · 8 stations · 2020-09 → 2025-12)                      │
 │  weather · pollutants · lags · cyclic time features                             │
@@ -21,7 +21,7 @@ This document describes the complete architecture of the Rasaynam platform: an A
 │                                 ML LAYER                                        │
 │                                                                                 │
 │  ml/train.py                                                                    │
-│   ├─ feature engineering (lags, rollings, seasonality, Diwali proximity)        │
+│   ├─ feature engineering (lags, rolling, seasonality, Diwali proximity)        │
 │   ├─ CPCB AQI target computation                                               │
 │   ├─ time-ordered train/test split                                              │
 │   ├─ HistGradientBoostingRegressor × {PM2.5, AQI} (3h & 24h horizons)          │
@@ -271,9 +271,9 @@ References:
 
 ## Regional AQI map
 
-The frontend includes a Leaflet-based regional map for the eight configured NCR, Punjab and Haryana sample locations. It consumes `GET /api/map`, which returns the same current station payloads used by the dashboard plus 56 forecast points per station. The map renders AQI-colored markers, pollutant-detail popups, an optional heat layer, and optional illustrative alert halos for AQI values above 200. A time selector samples each station forecast at +24h, +48h, Day 3, Day 5 and Day 7.
+The frontend includes a Leaflet-based regional map for the eight configured sample locations in NCR, Punjab, and Haryana. It consumes `GET /api/map`, which returns the same current station payloads used by the dashboard plus 56 forecast points per station. The map renders AQI-colored markers, pollutant-detail popups, an optional heat layer, and optional illustrative alert halos for AQI values above 200. A time selector samples each station forecast at +24h, +48h, Day 3, Day 5, and Day 7.
 
-**Spatial interpretation constraint:** the eight coordinates are sparse point samples. The heat layer is a smoothed visual interpolation, not a measured continuous pollution field. Alert halos are illustrative visual emphasis, not validated danger-zone boundaries. Current values are CAMS model-grid estimates where available (not CPCB ground-monitor readings); historical CSV fallback is source-labelled. Forecasts after 48 hours remain experimental recursive ML outputs. The frontend uses Leaflet and Leaflet.heat from CDNs and OpenStreetMap tiles with attribution.
+**Spatial interpretation constraint:** the eight coordinates are sparse point samples. The heat layer is a smoothed visual interpolation, not a measured continuous pollution field. Alert halos are for visual emphasis only, not validated danger-zone boundaries. Current values are CAMS model-grid estimates where available (not CPCB ground-monitor readings); historical CSV fallback is source-labelled. Forecasts after 48 hours remain experimental recursive ML outputs. The frontend uses Leaflet and Leaflet.heat from CDNs and OpenStreetMap tiles with attribution.
 
 ### Map API
 
