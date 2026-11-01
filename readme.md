@@ -1,14 +1,14 @@
-# Rasaynam — AI-Powered Neighborhood Air Quality & Health Platform
+# Rasayanam — AI-Powered Neighborhood Air Quality & Health Advisory System
 
 **Predicting neighborhood-level air pollution before, during, and after Diwali and telling you exactly what to do about it.**
 
-Rasaynam is an all-in-one platform that combines **historical air-quality data**, **weather conditions**, **traffic/cyclical indicators**, and **ML forecasting** to predict air pollution at the neighborhood (monitoring-station) level across the NCR–Punjab–Haryana region. Around it wraps a complete **health companion**: live AQI, interactive pollutant reports, respiratory-health education, guided breathing exercises, herbal teas & home remedies, and a directory of nearby doctors and ENT specialists.
+Rasayanam is an all-in-one platform that combines **historical air-quality data**, **weather conditions**, **traffic/cyclical indicators**, and **ML forecasting** to predict air pollution at the neighborhood (monitoring-station) level across the NCR–Punjab–Haryana region. Around it wraps a complete **health companion**: live AQI, interactive pollutant reports, respiratory-health education, guided breathing exercises, herbal teas & home remedies, and a directory of nearby doctors and ENT specialists.
 
 ---
 
 ## Problem Statement
 
-Air pollution in Delhi-NCR, Punjab and Haryana spikes dramatically around Diwali due to firecrackers, crop-residue burning, stagnant winter weather, and traffic emissions. Citizens need **one place** that provides:
+Air pollution in Delhi-NCR, Punjab, and Haryana spikes dramatically around Diwali due to firecrackers, crop-residue burning, stagnant winter weather, and traffic emissions. Citizens need **one place** that provides:
 
 1. **Present info** — current AQI and pollutant levels for their neighborhood.
 2. **Predicted info** — ML-based forecasts of pollution *before, during, and after* Diwali.
@@ -41,8 +41,8 @@ Air pollution in Delhi-NCR, Punjab and Haryana spikes dramatically around Diwali
 ### 4. Health Corner — "Your Personal Nurse"
 - **Dynamic health advisory** that changes with the live AQI category (what to do right now).
 - **Guided breathing exercises** — box breathing, 4-7-8, and diaphragmatic breathing with an interactive animated pacer.
-- **Herbal teas & home remedies** for irritation, cough, congestion, throat dryness and eye discomfort (turmeric milk, tulsi-ginger tea, mulethi, steam inhalation, ...).
-- **Doctor & ENT specialist directory** for the nearby area — searchable filter by city and specialty.
+- **Herbal teas & home remedies** for irritation, cough, congestion, throat dryness, and eye discomfort (turmeric milk, tulsi-ginger tea, mulethi, steam inhalation, ...).
+- **Doctor & ENT specialist directory** for the nearby area — searchable by city and specialty.
 
 ### 5. Learn Section
 - Curated references to authoritative articles (WHO, CPCB, American Lung Association, NIH/EPA, etc.) on how high AQI causes respiratory and cardiovascular issues.
@@ -143,7 +143,7 @@ WS_BROADCAST_INTERVAL=120 uvicorn backend.main:app --port 8000
 
 Rasaynam queries the public [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) for current PM2.5, PM10, CO, NO2 and SO2 concentrations at each station coordinate. It queries the [Open-Meteo Weather API](https://open-meteo.com/en/docs) for current weather covariates. The API's air-quality current conditions are based on atmospheric model data, not a regulatory ground monitor. Rasaynam computes its displayed index using the project's CPCB breakpoint implementation; this should be described as a **CPCB-breakpoint AQI estimate from CAMS model-grid concentrations**, not an official CPCB station AQI.
 
-Open-Meteo's Air Quality API currently documents a maximum of **7 forecast days**. Rasaynam therefore targets a 7-day forecast, not 10 days. The 7-day ML trajectory recursively applies models trained on 3-hour and 24-hour targets; beyond 48 hours it is experimental and error may accumulate. The present rollout persists the latest weather values, so weather-forecast feature injection and multi-horizon backtesting are required before presenting days 3–7 as validated predictions.
+Open-Meteo's Air Quality API currently documents a maximum of **7 forecast days**. Rasaynam therefore targets a 7-day forecast, not 10 days. The 7-day ML trajectory recursively applies models trained on 3-hour and 24-hour targets; beyond 48 hours, it is experimental, and error may accumulate. The present rollout persists the latest weather values, so weather-forecast feature injection and multi-horizon backtesting are required before presenting days 3–7 as validated predictions.
 
 If Open-Meteo is unreachable, `/api/current` falls back to the last row of the 2020–2025 CSV and marks the response `historical_fallback`. Do not present this fallback as today's measured AQI.
 
