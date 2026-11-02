@@ -106,7 +106,8 @@ raw rows
 
 | Module | Responsibility |
 |---|---|
-| `backend/aqi.py` | CPCB breakpoint interpolation for supported PM2.5, PM10, NO₂, SO₂ and CO values → maximum valid sub-index; category (Good → Severe). Missing species are excluded; these five CAMS species do not constitute all CPCB AQI inputs or regulatory 24-hour monitor averages. |
+| `backend/aqi.py` | CPCB breakpoint interpolation and maximum valid sub-index; an overall value requires at least three valid species including PM2.5 or PM10. Model inputs remain estimates and are not CPCB running averages. |
+| `backend/live.py` | Thread-safe, batched Open-Meteo air-quality/weather fetches, per-process cache, bounded retries and provider backoff |
 | `backend/feed.py` | In-memory dataset; `latest_per_station()`, `history(station, hours)`, station metadata |
 | `backend/forecast.py` | CAMS hourly pollutant and matching weather forecasts → CPCB AQI at available 3-hour timestamps; recent-seed local ML fallback capped at 48h |
 | `backend/main.py` | App wiring: REST routes, **WebSocket `/ws`**, static hosting, background broadcast task |
@@ -116,10 +117,11 @@ raw rows
 ```
 GET /api/health        → status, interval, model info
 GET /api/stations      → 8 stations with metadata
-GET /api/current       → current CAMS grid estimate → CPCB-breakpoint AQI;
-                           historical CSV fallback is explicitly marked
+GET /api/current       → fresh/recent CAMS estimate or aqi:null with source_status;
+                           historical CSV value is nested under historical_observation
 GET /api/history       → recent CAMS time series up to 48h; returns no points rather than stale CSV if live history is unavailable; longer ranges use labelled CSV history
 GET /api/forecast      → timestamped CAMS forecast for available horizon; recent-seed ML fallback ≤48h; otherwise unavailable
+GET /api/map           → all station records, including unavailable stations, plus available forecasts
 GET /api/diwali        → historical before/during/after Diwali climatology
 GET /api/articles      → curated respiratory-health references
 GET /api/doctors       → doctor & ENT directory (?city, ?specialty)
@@ -133,19 +135,19 @@ GET /api/remedies      → herbal teas & home remedies
 ```jsonc
 // 1) sent immediately on connect (snapshot)
 { "type": "snapshot", "server_time": "...", "interval_seconds": 600,
+  "connection_status": "connected", "data_status": "available|unavailable",
   "stations": [ { "station_id", "city", "state", "lat", "lon",
                   "reading": { temp_c, humidity, pm25, pm10, no2, so2, co, ... },
-                  "aqi": 312, "category": "Severe", "color": "#7e0023",
+                  "aqi": 312|null, "current_available": true|false,
+                  "timestamp", "source", "source_status", "data_age_seconds",
                   "advisory": { "summary", "do", "avoid" } } ],
-  "forecast": { "station_id": [ { "ts", "aqi", "pm25" }, ... ] } }
+  "forecast": { "station_id": { "base_time", "points": [ { "ts", "aqi", "pm25" }, ... ] } } }
 
 // 2) every 10 minutes (WS_BROADCAST_INTERVAL, default 600 s)
 { "type": "broadcast", "server_time": "...", "seq": 42,
   "stations": [ ... same shape ... ],
   "forecast": { ... } }
 
-// 3) heartbeats
-{ "type": "ping", "server_time": "..." }
 ```
 
 *Client → server:* none required; the server answers WS ping frames automatically (uvicorn) and tolerates silent clients. Clients receive `snapshot` on connect, so the UI is never empty between broadcasts.
@@ -154,11 +156,13 @@ GET /api/remedies      → herbal teas & home remedies
 
 ```
 every WS_BROADCAST_INTERVAL seconds:
-    stations = feed.latest_per_station()          # latest cached CAMS model-grid estimate (or labelled historical fallback)
-    for s in stations: s["aqi"], s["category"] = aqi.compute(...)
+    live_bundles = provider.get_stations(all_station_metadata)  # at most one batch per API
+    stations = current_payloads(live_bundles)                   # unavailable values stay null
     forecasts = forecast.forecast_all(steps=56, live_bundles)
     await hub.broadcast({type: "broadcast", ...})  # to all open client sockets
 ```
+
+Blocking provider and forecast work runs in a worker thread. A per-process lock shares a cold refresh among concurrent REST and WebSocket requests. WebSocket connection status never implies that a current AQI value is available.
 
 ### 2.4 Frontend Layer (Static SPA)
 
@@ -224,7 +228,7 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 1. **One Python service** for ML + REST + WebSocket — predictions and pushes share the same in-memory model/data, no serialization hop, minimal moving parts.
 2. **Push ≠ polling**: clients never poll; the 10-minute cadence lives server-side (`WS_BROADCAST_INTERVAL`), with an on-connect snapshot so the UI is instant.
-3. **AQI computed server-side** with official CPCB breakpoints so every client sees identical, authoritative numbers.
+3. **AQI computed server-side** with CPCB breakpoint interpolation and CAMS rolling concentration averages. These remain model estimates, not official CPCB readings.
 4. **Strictly time-ordered ML splits** — a random split would leak the future and inflate metrics; the 2025 hold-out mirrors real forecasting.
 5. **Data access behind `feed.py`** — swapping the CSV for a live database is a one-module change.
 6. **Static vanilla frontend** — no build step, opens anywhere, Chart.js for interactivity; easily replaceable by React/Next.js later without backend changes.
@@ -250,13 +254,13 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 ### Current AQI source
 
-`backend/live.py` calls the Open-Meteo Air Quality API for PM2.5, PM10, CO, NO₂ and SO₂ at each station's latitude/longitude, plus the Open-Meteo Weather API for current and hourly weather. Responses are cached for 15 minutes. The provider retrieves recent hourly pollutant/weather history for lag features. `backend/main.py` applies `backend/aqi.py` CPCB pollutant breakpoints and attaches source metadata.
+`backend/live.py` calls the Open-Meteo Air Quality API and Weather API with comma-separated coordinates for all eight configured stations. The provider cache defaults to one hour and is process-local. Per-endpoint raw responses are reused if the other endpoint fails. Concurrent refreshes share a thread lock; timeouts are bounded, transient failures receive at most two retries, and HTTP 429 honors `Retry-After` without immediate retries. After the cache TTL, a last successful bundle can be returned for up to six hours with `cache_status: stale_cache` and its age.
 
-**Important provenance:** Open-Meteo's air-quality values are CAMS atmospheric model-grid estimates (approximately 11–45 km), not CPCB reference-monitor readings. The dashboard labels them as model estimates. If the upstream API fails, the service can show the latest CSV row only with historical provenance; it must not be represented as current measured data.
+**Important provenance:** Open-Meteo's air-quality values are CAMS atmospheric model-grid estimates, not CPCB reference-monitor readings. The service averages hourly values over trailing 24-hour windows (8 hours for CO) and requires at least 16 (or 6 for CO) valid hours before applying breakpoints. This does not provide CPCB monitor validation or the full pollutant set. Overall AQI requires three valid species, including PM2.5 or PM10. If no recent provider data is available, the current endpoint sets `aqi` to null and nests the old CSV value and timestamp under `historical_observation`; the frontend does not show it as current.
 
 ### Timestamped CAMS AQI forecast
 
-`backend/live.py` retains the complete hourly air-quality response from Open-Meteo. `ForecastService.forecast_station_from_cams()` samples future hourly pollutant concentrations at 3-hour targets, converts CO from µg/m³ to mg/m³, calculates CPCB sub-indices for each available pollutant, and takes the maximum valid sub-index as the AQI. It returns only timestamps for which upstream pollutant values are available; it does not repeat missing pollutant values or recursively feed predictions into the next step.
+`backend/live.py` retains the complete hourly air-quality response from Open-Meteo. `ForecastService.forecast_station_from_cams()` calculates the trailing concentration averages at available 3-hour targets, requires minimum hourly coverage and three valid species including PM2.5 or PM10, and returns only timestamps with sufficient data. It does not repeat missing pollutant values or recursively feed predictions into the CAMS forecast.
 
 The local `HistGradientBoostingRegressor` artifacts are retained for short-horizon experimentation. If the CAMS hourly forecast is unavailable, a clearly labelled local ML fallback is permitted only when the current observation is no more than six hours old, and is limited to 48 hours. The fallback persists weather and four pollutant species, so it is experimental. Without a recent seed, the API returns an unavailable forecast with no points. CAMS forecasts are gridded model estimates, not CPCB monitor forecasts.
 
@@ -268,7 +272,7 @@ References:
 
 ## Regional AQI map
 
-The frontend includes a Leaflet-based regional map for the eight configured NCR, Punjab and Haryana sample locations. It consumes `GET /api/map`, which returns current station payloads plus available timestamped forecast points per station. The map renders AQI-colored markers, pollutant and weather detail popups, an optional heat layer, and optional illustrative alert halos for AQI values above 200. Its 3-hour timeline and play/pause control stop at the longest timestamp actually returned; stations without a matching point are omitted for that time.
+The frontend includes a Leaflet-based regional map for the eight configured NCR, Punjab and Haryana sample locations. It consumes `GET /api/map`, which returns every station, nullable current AQI, per-station availability and available timestamped forecast points. The map renders AQI-colored markers, grey markers for unavailable values, pollutant and weather detail popups, an optional heat layer based only on valid values, and optional illustrative alert halos for AQI values above 200. Its timeline and play/pause control stop at the longest returned timestamp; stations without a matching point remain represented as unavailable.
 
 **Spatial interpretation constraint:** the eight coordinates are sparse point samples. The heat layer is a smoothed visual interpolation, not a measured continuous pollution field. Alert halos are illustrative visual emphasis, not validated danger-zone boundaries. Current values are CAMS model-grid estimates where available (not CPCB ground-monitor readings); historical CSV fallback is source-labelled. Forecast values are CAMS model-grid estimates; uncertainty increases with forecast lead time and the sparse station sample does not establish street-level conditions. The frontend uses Leaflet and Leaflet.heat from CDNs and OpenStreetMap tiles with attribution.
 
@@ -276,12 +280,22 @@ The frontend includes a Leaflet-based regional map for the eight configured NCR,
 
 `GET /api/map`
 
-Returns `region`, `data_as_of`, `stations[]`, `forecast{station_id:{base_time,step_hours,confidence_note,points[]}}`, and `spatial_note`. Each station includes configured coordinates, AQI category/color, timestamp, source and pollutant readings. Forecast points contain their actual timestamp, AQI, available pollutant concentrations and matching weather fields. No missing timestamps or values are synthesized.
+Returns `region`, `data_as_of`, `data_status`, `stations[]`, `forecast{station_id:{base_time,step_hours,confidence_note,points[]}}`, and `spatial_note`. Each station includes coordinates, `current_available`, nullable AQI, `source_status`, timestamp and available readings. Forecast points contain their actual timestamp, AQI, available pollutant concentrations and matching weather fields. No missing timestamps or values are synthesized.
+
+## Deployment and cache lifetime
+
+`render.yaml` installs the declared dependencies, binds Uvicorn to `0.0.0.0:$PORT`, and configures `/api/health`. Dataset, static assets and model artifacts resolve from the repository root. Provider caches exist only within each running process and are intentionally disposable: restarts and free-instance sleep trigger a new batched fetch; stale CSV values are never promoted to current data. Multiple service instances maintain independent caches, but each refresh is bounded to one request per upstream API per instance.
+
+## Responsive layout and test coverage
+
+The single-page frontend has responsive breakpoints at 1100, 850, 600 and 390 pixels. The section navigation becomes an in-flow row on tablet/mobile; dashboard panels stack, chart tools wrap/scroll, forecast heights scale, and map controls and legend wrap for touchscreens. Map resize and orientation changes call `invalidateSize()`.
+
+Automated backend tests use controlled provider responses for success, partial responses, 429, timeout, malformed data and stale-cache paths. API smoke tests run the actual app under local Uvicorn with the provider deliberately offline, checking REST routes, static assets and the WebSocket snapshot. Browser rendering and physical viewport checks require a browser-capable test environment.
 
 
 ## Forecasting correction (current implementation)
 
-The public forecast is sourced from the hourly CAMS air-quality forecast returned by `backend/live.py`. `ForecastService.forecast_station_from_cams()` samples available hourly pollutant values at 3-hour targets, converts CO from µg/m³ to mg/m³, computes each pollutant CPCB sub-index, and takes the maximum valid sub-index as AQI. Missing samples are not filled by persistence. The returned horizon reflects actual provider coverage. Local HistGradientBoosting models are retained for short-horizon experiments; fallback requires a live seed no older than six hours, is capped at 48 hours, and documents its persistence assumptions. If such a seed is missing or stale, there are no forecast points.
+The public forecast is sourced from the hourly CAMS air-quality forecast returned by `backend/live.py`. `ForecastService.forecast_station_from_cams()` computes trailing 24-hour concentration averages (8-hour CO) at 3-hour targets, applies CPCB breakpoint sub-indices, and takes the maximum valid sub-index as AQI when minimum temporal and species coverage is available. Missing samples are not filled by persistence. The returned horizon reflects actual provider coverage. Local HistGradientBoosting models are retained for short-horizon experiments; fallback requires a live seed no older than six hours, is capped at 48 hours, and documents its persistence assumptions. If such a seed is missing or stale, there are no forecast points.
 
 The old near-constant severe local rollout is reproducible from the model code: every predicted AQI and PM2.5 value feeds the next 3-hour step, four other pollutants are persisted, and weather is held constant. Starting from a historical AQI-500 event (2020-11-01), six of eight station traces stayed within a 2–9 point band over 56 recursive steps; the remaining traces spanned 16 and 19 points. That behavior is input-dependent convergence under persistence assumptions, not a credible seven-day trajectory. The public forecast avoids that loop by evaluating CAMS pollutant concentrations at their returned timestamps; the local recursive model is retained only as a labelled ≤48-hour experiment with a recent live seed.
 

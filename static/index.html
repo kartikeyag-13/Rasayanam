@@ -267,6 +267,49 @@ body.intro-active .topbar .nav,body.intro-active .topbar .menu{opacity:0;pointer
 @media(max-width:700px){.intro-screen video{object-fit:contain}.topbar .brand{width:44vw}}
 @media(max-width:560px){.intro-skip{right:16px;bottom:16px}}
 @media(prefers-reduced-motion:reduce){.intro-screen,.topbar .brand,.topbar .nav,.topbar .menu,.intro-active main,.intro-active footer{transition:none!important}}
+
+/* Responsive pass: keep the existing visual system while preventing narrow
+   layouts and fixed story navigation from covering content or controls. */
+html,body{max-width:100%;overflow-x:clip}
+main,header,footer,section,.wrap,.panel,.map-shell,.forecast-card{min-width:0}
+img,video,canvas,svg{max-width:100%}
+.live-grid,.forecast-grid,.feature-grid,.health-grid,.learn-grid,.intro-head,.story-top{min-width:0}
+.status{white-space:normal;max-width:100%;line-height:1.4}
+.chart-panel .panel-top,.forecast-card .panel-top{min-width:0;gap:12px}
+.map-status{overflow-wrap:anywhere;line-height:1.5}
+.map-popup{max-width:min(260px,calc(100vw - 64px));min-width:0;overflow-wrap:anywhere}
+.unavailable-marker{background:#69746a!important;border-color:#fff}
+@media(max-width:1100px){
+ .topbar{gap:18px}.nav{gap:14px}.nav a{font-size:11px}
+}
+@media(max-width:850px){
+ .journey-nav{position:relative;z-index:9;inset:auto;transform:none;display:flex;flex-direction:row;justify-content:center;gap:5px;width:max-content;max-width:calc(100% - 24px);margin:76px auto 0;padding:4px 8px;background:rgba(24,48,36,.9)}
+ .journey-nav a{justify-content:center;width:42px;min-width:42px;min-height:42px;padding:8px}.journey-nav a span{display:none}
+ .section-head,.map-head{min-width:0}.section-head .status{align-self:flex-start}
+ .live-grid{grid-template-columns:minmax(0,1fr)}
+ .forecast-grid{grid-template-columns:minmax(0,1fr);gap:26px}
+ .forecast-copy p{max-width:62ch}
+ .map-head{display:block}.map-head p{margin-top:14px}
+ .map-toolbar{align-items:stretch}.map-layer-toggle{width:100%}.map-layer-toggle button{flex:1 1 120px;min-height:42px}
+ .map-timeline{flex-wrap:wrap}.map-timeline input{flex:1 1 100%;order:2}.map-timeline b{margin-left:auto}
+}
+@media(max-width:600px){
+ .wrap{width:calc(100% - 32px)}
+ .topbar{height:66px;padding-inline:16px}.topbar .brand{width:clamp(140px,44vw,172px)}
+ .journey-nav{margin-top:66px;margin-bottom:0}
+ .hero{min-height:0;padding:74px 0 82px}.hero-grid{gap:8px}.hero h1{font-size:clamp(44px,12vw,58px);overflow-wrap:anywhere}.hero-copy{font-size:14px}.hero-actions{flex-wrap:wrap}.hero-art{height:280px}
+ .section-head{gap:16px;margin-bottom:24px}.section-head .section-title{font-size:clamp(36px,10vw,48px)}
+ .panel{padding:clamp(16px,5vw,22px)}.panel-top{align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px}.panel-title{min-width:0;overflow-wrap:anywhere}.station-select{max-width:100%;min-height:42px}
+ .aqi-wrap{flex-direction:column;align-items:center;gap:14px}.gauge{width:clamp(140px,42vw,165px);height:clamp(140px,42vw,165px)}.gauge-number{font-size:clamp(42px,13vw,54px)}.aqi-desc{text-align:center;max-width:42ch}.aqi-desc strong{font-size:20px}
+ .pollutants{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px}.pollutant{min-width:0}.pollutant b{font-size:17px}.observation-meta{gap:7px}.observation-meta b{overflow-wrap:anywhere}.source-explainer{font-size:10px}
+ .chart-panel .panel-top{align-items:flex-start;flex-direction:column}.chart-tools{display:flex;flex-wrap:wrap;width:100%;gap:6px}.chart-tools button{min-height:40px;flex:1 1 56px}.pollutant-switch{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding:2px 1px 8px;overscroll-behavior-inline:contain;scrollbar-width:thin}.pollutant-switch button{flex:0 0 auto;min-height:40px;padding-inline:12px}.chart-area{height:clamp(210px,65vw,260px)!important;min-height:0!important}.chart-empty{padding:14px}.chart-empty b{font-size:14px}.chart-empty span{font-size:12px}.chart-foot{align-items:flex-start;flex-direction:column;gap:4px}.chart-foot span{max-width:100%;overflow-wrap:anywhere}.chart-foot span:last-child{text-align:left}
+ .forecast{padding:72px 0}.forecast-card{padding:clamp(16px,5vw,22px)}.forecast-card .panel-top{flex-direction:column;align-items:flex-start}.forecast-card #forecastStation{max-width:100%;overflow-wrap:anywhere}.forecast-bars{height:clamp(180px,55vw,220px);gap:4px;padding-inline:2px}.forecast-legend{flex-direction:column;gap:5px;margin-top:30px;line-height:1.5}.forecast-meta{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}.forecast-caveat{overflow-wrap:anywhere}
+ .map-section{padding:72px 0}.map-toolbar{padding:14px;gap:12px}.map-toolbar>div:first-child{width:100%}.map-toolbar select{display:block;width:100%;max-width:100%;margin:7px 0 0;min-height:42px}.map-layer-toggle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.map-layer-toggle button{min-width:0;min-height:44px;padding:9px 8px}.map-status{width:100%}.map-timeline{gap:8px;padding-top:0}.map-timeline button{min-height:44px}.map-timeline input{min-width:0}.map-timeline b{min-width:56px}#aqiMap{height:clamp(320px,100vw,420px)}.map-legend{padding:12px 14px;gap:8px 12px;font-size:9px}.map-note{padding:12px 14px;font-size:10px}.leaflet-popup-content{max-width:calc(100vw - 80px);margin:10px 12px}.leaflet-popup-content-wrapper{max-width:calc(100vw - 48px)}
+ .health-grid,.learn-grid{grid-template-columns:minmax(0,1fr)}.feature-grid{grid-template-columns:minmax(0,1fr)}.feature-card,.feature-card.light{min-height:260px;padding:24px}.health-card{min-height:200px}.breath-widget{gap:16px;padding:20px}.footer-bottom span{overflow-wrap:anywhere}
+}
+@media(max-width:390px){
+ .wrap{width:calc(100% - 24px)}.hero h1{font-size:clamp(42px,11.8vw,48px)}.panel{padding:15px}.chart-tools{gap:4px}.chart-tools button{padding-inline:7px;font-size:9px}.map-layer-toggle{grid-template-columns:minmax(0,1fr)}.map-legend{gap:7px}.map-legend .legend-item{font-size:8px}.journey-nav a{width:38px;min-width:38px}
+}
 </style>
 </head>
 <body>
@@ -315,7 +358,7 @@ body.intro-active .topbar .nav,body.intro-active .topbar .menu{opacity:0;pointer
  <div class="live-grid">
   <article class="panel dark reveal">
    <div class="panel-top"><span class="panel-title">Air quality index</span><select class="station-select" id="station"><option value="DL_SAFDARJUNG">New Delhi · Safdarjung</option><option value="DL_ANAND_VIHAR">New Delhi · Anand Vihar</option><option value="HR_GURUGRAM_SEC51">Gurugram · Sector 51</option><option value="UP_NOIDA_SEC62">Noida · Sector 62</option><option value="HR_AMBALA_AFS">Ambala</option><option value="HR_HISAR_HAU">Hisar</option><option value="PB_AMRITSAR_GT">Amritsar</option><option value="PB_LUDHIANA_PAU">Ludhiana</option></select></div>
-   <div class="aqi-wrap"><div class="gauge"><svg viewBox="0 0 180 180"><circle class="track" cx="90" cy="90" r="70"/><circle class="value" id="gaugeArc" cx="90" cy="90" r="70"/></svg><div style="text-align:center"><div class="gauge-number" id="aqiValue">—</div><div class="gauge-label">AQI · instant model estimate</div></div></div><div class="aqi-desc"><strong id="aqiCategory">Waiting for data</strong><span id="aqiMessage">The latest station reading will appear here when the service connects.</span></div></div><div class="observation-meta"><span class="meta-label">MODEL TIMESTAMP</span><b id="observedAt">Waiting for timestamp…</b><span id="dataFreshness" class="freshness-pill">Checking data source</span></div><small class="source-explainer">Instantaneous CAMS grid concentrations converted with CPCB breakpoints. This is not an official CPCB station AQI; source location, pollutants, and averaging windows can produce different values.</small>
+   <div class="aqi-wrap"><div class="gauge"><svg viewBox="0 0 180 180"><circle class="track" cx="90" cy="90" r="70"/><circle class="value" id="gaugeArc" cx="90" cy="90" r="70"/></svg><div style="text-align:center"><div class="gauge-number" id="aqiValue">—</div><div class="gauge-label">AQI · CAMS model estimate</div></div></div><div class="aqi-desc"><strong id="aqiCategory">Waiting for data</strong><span id="aqiMessage">The latest station reading will appear here when the service connects.</span></div></div><div class="observation-meta"><span class="meta-label">MODEL TIMESTAMP</span><b id="observedAt">Waiting for timestamp…</b><span id="dataFreshness" class="freshness-pill">Checking data source</span></div><small class="source-explainer">CAMS grid concentrations averaged over 24 hours (8 hours for CO) and converted with CPCB breakpoints when hourly coverage is sufficient. This is a model estimate, not an official CPCB station AQI.</small>
    <div class="pollutants"><div class="pollutant"><span>PM2.5</span><b id="pm25">—</b><small>µg/m³</small></div><div class="pollutant"><span>PM10</span><b id="pm10">—</b><small>µg/m³</small></div><div class="pollutant"><span>NO₂</span><b id="no2">—</b><small>µg/m³</small></div><div class="pollutant"><span>SO₂</span><b id="so2">—</b><small>µg/m³</small></div><div class="pollutant"><span>CO</span><b id="co">—</b><small>mg/m³</small></div><div class="pollutant"><span>Temperature</span><b id="temp">—</b><small>°C</small></div></div>
    <div class="advisory"><b>Today's small reminder</b><span id="advisory">Choose a station to explore its latest air-quality reading and health guidance.</span></div><div class="aqi-alert" id="aqiAlert"><span class="alert-icon">⚠</span><span id="aqiAlertText"></span></div>
   </article>
@@ -386,7 +429,7 @@ body.intro-active .topbar .nav,body.intro-active .topbar .menu{opacity:0;pointer
 <footer class="footer"><div class="wrap"><div class="footer-top"><div><div class="brand"><span class="brandmark"></span> Rasayanam</div><h2>In rhythm with <em>the living world.</em></h2></div><p>An air-quality intelligence project for NCR, Punjab and Haryana. Ayurveda-inspired in spirit and design; evidence-led in its environmental data, forecasts and public-health guidance.</p></div><div class="footer-bottom"><span>© 2026 Rasayanam · PROJECT EXPERIENCE</span><span>DATA-LED · PEOPLE-CENTRED</span><a href="#home">BACK TO TOP ↑</a></div></div></footer>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const station=$('#station');let currentStation=station.value,historyChart=null,historyHours=24,ws=null,retry=1000,lastForecast=null;
+const station=$('#station');let currentStation=station.value,historyChart=null,historyHours=24,ws=null,retry=1000,lastForecast=null,requestVersion=0,requestControllers={},wsRetryTimer=null;
 function setText(id,v){const el=document.getElementById(id);if(el)el.textContent=(v===undefined||v===null||v==='')?'—':v}
 function fmt(v,d=1){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v).toFixed(d):'—'}
 function categoryMessage(c){return ({'Good':'Air quality is good. Enjoy outdoor activities as usual.','Satisfactory':'Air quality is generally acceptable. Sensitive people should stay aware of symptoms.','Moderate':'People with respiratory or heart conditions should reduce prolonged outdoor exertion.','Poor':'Reduce prolonged outdoor exertion; sensitive groups should take extra care.','Very Poor':'Avoid prolonged outdoor activity and follow official health guidance.','Severe':'Minimise outdoor exposure and follow local public-health advisories.'})[c]||'Review the latest reading and follow official local health guidance.'}
@@ -399,16 +442,24 @@ function aqiBand(a){
  return {key:'severe',label:'Severe',color:'#c92e4a',alert:true};
 }
 function renderStation(s){
- const a=Number(s.aqi??s.AQI??s.reading?.aqi??NaN),r=s.reading||s;
+ const currentAvailable=s.current_available!==false;
+ const a=currentAvailable?Number(s.aqi??s.AQI??s.reading?.aqi??NaN):NaN,r=s.reading||s;
  const observed=s.timestamp||s.ts||s.reading?.timestamp||null;
  if(observed){
-  const sourcePill=$('#dataFreshness');
-  if(sourcePill&&s.source&&s.source.includes('Open-Meteo')){sourcePill.textContent='CAMS model estimate';sourcePill.classList.add('fresh');}
   const dt=new Date(observed);setText('observedAt',Number.isNaN(dt.getTime())?observed:dt.toLocaleString([],{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}));
-  const ageHours=(Date.now()-dt.getTime())/3600000, pill=$('#dataFreshness');
-  if(pill){pill.classList.remove('fresh','stale');if(ageHours<=3){pill.textContent='Recent observation';pill.classList.add('fresh')}else{pill.textContent='Historical data · '+Math.floor(ageHours/24)+'d old';pill.classList.add('stale')}
-   if(s.source&&s.source.includes('Open-Meteo')){pill.textContent='CAMS model estimate';pill.classList.add('fresh');}
-   if(s.source==='historical_csv_fallback'){pill.textContent='Historical CSV fallback';pill.classList.add('stale');}
+  const ageSeconds=Number.isFinite(Number(s.data_age_seconds))?Number(s.data_age_seconds):(Date.now()-dt.getTime())/1000;
+  const pill=$('#dataFreshness');
+  if(pill){pill.classList.remove('fresh','stale');
+   if(s.source_status==='historical_fallback'||s.source_status==='provider_observation_stale'){
+    pill.textContent='Current AQI unavailable · historical timestamp';pill.classList.add('stale');
+   }else if(s.source_status==='insufficient_current_data'){
+    pill.textContent='Current AQI unavailable · insufficient pollutant coverage';pill.classList.add('stale');
+   }else if(s.source_status==='stale_cache'||s.cache_status==='stale_cache'){
+    const cacheAge=Number(s.cache_age_seconds||0);pill.textContent='Cached estimate · last refresh '+Math.round(cacheAge/60)+'m ago';pill.classList.add('stale');
+   }else if(Number.isFinite(ageSeconds)&&ageSeconds>=0){
+    const ageLabel=ageSeconds<3600?Math.max(1,Math.round(ageSeconds/60))+'m ago':Math.floor(ageSeconds/3600)+'h ago';
+    pill.textContent='CAMS estimate · observation '+ageLabel; pill.classList.add('fresh');
+   }else{pill.textContent='Timestamp unavailable';pill.classList.add('stale')}
   }
  }else{setText('observedAt','Timestamp not supplied');setText('dataFreshness','Source timestamp unavailable')}
 
@@ -419,30 +470,30 @@ function renderStation(s){
  if(a>=301&&a<=400)panel.classList.add('aqi-very-poor');
  if(a>400)panel.classList.add('aqi-severe');
  setText('aqiValue',Number.isFinite(a)?Math.round(a):'—');
- setText('aqiCategory',s.category||s.aqi_category||band.label);
- setText('aqiMessage',Number.isFinite(a)?categoryMessage(s.category||band.label):'AQI reading is unavailable. Check again shortly.');
+ setText('aqiCategory',Number.isFinite(a)?(s.category||s.aqi_category||band.label):'Unavailable');
+ const unavailableMessage=s.source_status==='insufficient_current_data'
+  ?'The provider returned pollutant values, but fewer than three valid species including PM2.5 or PM10 were available to calculate an overall AQI.'
+  :s.source_status==='historical_fallback'||s.source_status==='provider_observation_stale'
+  ?'Current air quality could not be retrieved. The timestamp above identifies the last historical observation; its AQI is not shown as current.'
+  :'A recent AQI estimate is unavailable for this location. Check again shortly.';
+ setText('aqiMessage',Number.isFinite(a)?categoryMessage(s.category||band.label):unavailableMessage);
  setText('pm25',fmt(r.pm25??r.pm25_ugm3));setText('pm10',fmt(r.pm10??r.pm10_ugm3));setText('no2',fmt(r.no2??r.no2_ugm3));setText('so2',fmt(r.so2??r.so2_ugm3));setText('co',fmt(r.co??r.co_mgm3,2));setText('temp',fmt(r.temp_c));
  const arc=$('#gaugeArc');arc.style.strokeDashoffset=440-(Math.min(Number.isFinite(a)?a:0,500)/500)*440;arc.style.stroke=s.color||band.color;
- const adv=s.advisory?.summary||s.advisory?.message||categoryMessage(s.category||band.label);setText('advisory',adv);
+ const adv=Number.isFinite(a)?(s.advisory?.summary||s.advisory?.message||categoryMessage(s.category||band.label)):'Current AQI is unavailable, so no AQI-based health category can be shown. Follow current local public-health guidance.';setText('advisory',adv);
  const alert=$('#aqiAlert');
  if(alert){alert.classList.toggle('show',band.alert);setText('aqiAlertText',a>400?'SEVERE AIR QUALITY. Avoid outdoor exertion, reduce exposure, and follow official local health advisories.':a>300?'VERY POOR AIR QUALITY. Minimise outdoor activity, especially for children, older adults, and people with heart or lung conditions.':'POOR AIR QUALITY. Reduce prolonged or strenuous outdoor activity and monitor symptoms.');}
  const dot=$('.status .dot');if(dot)dot.classList.toggle('alert-dot',band.alert);
 }
-function findStation(payload){const arr=payload?.stations||payload?.data?.stations||[];return arr.find(x=>(x.station_id||x.id)===currentStation)||arr[0]}
-function updateConnection(ok,msg){$('#connection').textContent=msg|| (ok?'Live connection':'Backend unavailable');$('.status .dot').style.background=ok?'#8ab46e':'#d0a66c'}
-function api(path){return fetch(path,{headers:{'Accept':'application/json'}}).then(r=>{if(!r.ok)throw Error(r.status);return r.json()})}
-function loadCurrent(){api('/api/current?station='+encodeURIComponent(currentStation)).then(data=>{
+function findStation(payload){const arr=payload?.stations||payload?.data?.stations||[];return arr.find(x=>(x.station_id||x.id)===currentStation)||null}
+function updateConnection(ok,msg){const el=$('#connection');if(el)el.textContent=msg||(ok?'Backend reachable':'Backend unavailable');const dot=$('.status .dot');if(dot)dot.style.background=ok?'#8ab46e':'#d0a66c'}
+function api(path,signal){return fetch(path,{signal,headers:{'Accept':'application/json'}}).then(async r=>{if(!r.ok){let detail='';try{const body=await r.json();detail=body.detail||''}catch{}throw Error('HTTP '+r.status+(detail?': '+detail:''))}return r.json()})}
+function loadCurrent(signal,version){const requestedStation=currentStation;api('/api/current?station='+encodeURIComponent(requestedStation),signal).then(data=>{
+ if(version!==requestVersion||requestedStation!==currentStation)return;
  const s=data.station||data.current||findStation(data)||data;
  renderStation(s);
- const ts=s.timestamp||data.data_as_of;
- if(ts){const d=new Date(ts);const stale=Number.isFinite(d.getTime())&&(Date.now()-d.getTime())>6*3600000;
-  const src=s.source||'unknown source';
-  if(src.includes('Open-Meteo')){updateConnection(true,'CAMS model-grid estimate · not a CPCB monitor');setText('dataFreshness','CAMS model estimate');}
-  else{updateConnection(true,'Historical CSV fallback · not live');setText('dataFreshness','Historical data only');}
- }
- else updateConnection(true,'Backend connected · timestamp missing');
-}).catch(err=>{renderStation({});updateConnection(false,'AQI unavailable · backend did not respond');setText('observedAt','No backend response');setText('dataFreshness','No current data');setText('aqiValue','—');setText('aqiCategory','Unavailable');setText('aqiMessage','No current AQI was returned. Reconnect to Rasayanam and try again.');setText('advisory','Health guidance is unavailable until a station reading is returned.');})}
-let historyRows=[],dataChartSource="API history";
+ updateConnection(true,s.current_available===false?'API reachable · current AQI unavailable':'API reachable · data freshness shown below');
+}).catch(err=>{if(err.name==='AbortError'||version!==requestVersion)return;renderStation({});updateConnection(false,'Backend unavailable');setText('observedAt','No response timestamp');setText('dataFreshness','No current data');setText('aqiValue','—');setText('aqiCategory','Unavailable');setText('aqiMessage','No current AQI was returned. Reconnect to Rasayanam and try again.');setText('advisory','Health guidance is unavailable until a current reading is returned.');})}
+let historyRows=[],dataChartSource="API history",historyController=null,historyRequestVersion=0,forecastController=null,forecastRequestVersion=0,currentController=null;
 const pollutantMeta={
  pm25:{label:'PM2.5',unit:'µg/m³',keys:['pm25','pm25_ugm3','pm2_5','pm2.5','pm25concentration']},
  pm10:{label:'PM10',unit:'µg/m³',keys:['pm10','pm10_ugm3','pm10concentration']},
@@ -555,11 +606,14 @@ function renderPollutantChart(){
  const sourceLabel=dataChartSource||'API history';setText('chartSource',points.length+' observations · '+sourceLabel);const source=$('#chartSource');if(source)source.classList.remove('chart-source-error');
 }
 function loadHistory(){
- setText('chartSource','Fetching live pollutant observations…');
- const empty=$('#chartEmpty');if(empty){empty.style.display='grid';empty.innerHTML='<div><b>Loading pollutant history…</b>Waiting for the selected station\'s time series.</div>';}
- api('/api/history?station='+encodeURIComponent(currentStation)+'&hours='+historyHours)
- .then(drawHistory)
- .catch(err=>{setText('chartSource','History API request failed');const source=$('#chartSource');if(source)source.classList.add('chart-source-error');showChartMessage('Could not load pollutant history','The request to /api/history failed ('+(err?.message||'network error')+'). Check the backend server, route, and browser Network tab.');});
+ if(historyController)historyController.abort();
+ historyController=new AbortController();const signal=historyController.signal,version=++historyRequestVersion,requestedStation=currentStation;
+ historyRows=[];if(historyChart){historyChart.destroy();historyChart=null;}
+ setText('chartSource','Loading '+(historyHours<=48?'recent model history':'historical dataset')+'…');
+ const empty=$('#chartEmpty');if(empty){empty.style.display='grid';empty.innerHTML='<div><b>Loading pollutant history…</b>Waiting for '+station.options[station.selectedIndex].text+'.</div>';}
+ api('/api/history?station='+encodeURIComponent(requestedStation)+'&hours='+historyHours,signal)
+ .then(data=>{if(version!==historyRequestVersion||requestedStation!==currentStation)return;drawHistory(data)})
+ .catch(err=>{if(err.name==='AbortError'||version!==historyRequestVersion)return;setText('chartSource','History unavailable');const source=$('#chartSource');if(source)source.classList.add('chart-source-error');showChartMessage('Could not load pollutant history','The history request failed. Try again when the backend is available.');});
 }
 function formatForecastTime(value){
  const d=new Date(value);return Number.isNaN(d.getTime())?String(value||'—'):d.toLocaleString([],{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
@@ -569,8 +623,8 @@ function loadForecast(payload){
  const stationForecast=payload?.stations?.[currentStation]||payload?.forecast?.[currentStation]||payload?.data?.stations?.[currentStation];
  const arr=Array.isArray(stationForecast)?stationForecast:stationForecast?.points;
  if(!Array.isArray(arr)||!arr.length){
-  setText('forecastDataLabel',stationForecast?.forecast_type==='unavailable'?'Forecast unavailable · '+(stationForecast.confidence_note||'No recent data seed'):'No forecast points returned for this station');
-  setText('forecastStation',station.options[station.selectedIndex].text);setText('forecastBaseTime','—');setText('forecastPeak','Peak prediction: —');$('#forecastBars').innerHTML='<p class="forecast-empty">No forecast points are available for this station.</p>';lastForecast=[];return;
+  setText('forecastDataLabel',stationForecast?.forecast_type==='unavailable'?'Forecast unavailable · '+(stationForecast.confidence_note||'No valid source data'):'No forecast points returned for this station');
+  setText('forecastStation',station.options[station.selectedIndex].text);setText('forecastBaseTime','—');setText('forecastPeak','Peak prediction: —');setText('forecastCaveat',stationForecast?.confidence_note||'No forecast values are available for this station and time.');$('#forecastBars').innerHTML='<p class="forecast-empty">No forecast points are available for this station.</p>';lastForecast=[];return;
  }
  lastForecast=arr;
  setText('forecastStation',station.options[station.selectedIndex].text);
@@ -592,12 +646,24 @@ function loadForecast(payload){
   d.title='Predicted AQI '+v+' at '+formatForecastTime(p.ts);bars.append(d);
  });
 }
-function loadAll(){loadCurrent();loadHistory();api('/api/forecast?station='+encodeURIComponent(currentStation)+'&steps=56').then(loadForecast).catch(err=>{setText('forecastStation',station.options[station.selectedIndex].text);setText('forecastDataLabel','Forecast unavailable · '+(err?.message||'API error'));$('#forecastBars').innerHTML='<p class="forecast-empty">Forecast service did not return data. No values are estimated here.</p>';});}
+function loadForecastRequest(){
+ if(forecastController)forecastController.abort();forecastController=new AbortController();
+ const signal=forecastController.signal,version=++forecastRequestVersion,requestedStation=currentStation;
+ setText('forecastStation',station.options[station.selectedIndex].text);setText('forecastDataLabel','Loading timestamped forecast…');setText('forecastBaseTime','—');setText('forecastPeak','Peak prediction: —');setText('forecastCaveat','Waiting for the selected station forecast.');$('#forecastBars').innerHTML='<p class="forecast-empty">Loading forecast points…</p>';lastForecast=[];
+ api('/api/forecast?station='+encodeURIComponent(requestedStation)+'&steps=56',signal)
+ .then(data=>{if(version!==forecastRequestVersion||requestedStation!==currentStation)return;loadForecast(data)})
+ .catch(err=>{if(err.name==='AbortError'||version!==forecastRequestVersion)return;setText('forecastStation',station.options[station.selectedIndex].text);setText('forecastDataLabel','Forecast unavailable');setText('forecastBaseTime','—');setText('forecastPeak','Peak prediction: —');setText('forecastCaveat','The forecast service did not return data. No values are estimated here.');$('#forecastBars').innerHTML='<p class="forecast-empty">Forecast is unavailable for this station. No values are fabricated.</p>';lastForecast=[];});
+}
+function loadAll(){
+ const version=++requestVersion;
+ if(currentController)currentController.abort();currentController=new AbortController();loadCurrent(currentController.signal,version);
+ loadHistory();loadForecastRequest();
+}
 function connectWS(){
  const proto=location.protocol==='https:'?'wss':'ws';ws=new WebSocket(proto+'://'+location.host+'/ws');
- ws.onopen=()=>{retry=1000;updateConnection(true,'Live · WebSocket connected')};
- ws.onmessage=e=>{try{const p=JSON.parse(e.data);if(p.type==='snapshot'||p.type==='broadcast'){const s=findStation(p);if(s)renderStation(s);if(p.forecast)loadForecast({stations:p.forecast});updateConnection(true,'Live · Updated from server')}}catch(err){}};
- ws.onclose=()=>{updateConnection(false,'Reconnecting…');setTimeout(connectWS,retry);retry=Math.min(retry*2,30000)};
+ ws.onopen=()=>{retry=1000;updateConnection(true,'WebSocket connected · data freshness shown below')};
+ ws.onmessage=e=>{try{const p=JSON.parse(e.data);if(p.type==='snapshot'||p.type==='broadcast'){const s=findStation(p);if(s)renderStation(s);if(p.forecast)loadForecast({stations:p.forecast});updateConnection(true,'WebSocket connected · latest message received')}}catch(err){console.warn('Ignored malformed WebSocket update',err)}};
+ ws.onclose=()=>{updateConnection(false,'WebSocket disconnected · reconnecting');if(wsRetryTimer)clearTimeout(wsRetryTimer);const delay=retry+Math.round(Math.random()*Math.min(1000,retry*.25));wsRetryTimer=setTimeout(connectWS,delay);retry=Math.min(retry*2,30000)};
  ws.onerror=()=>ws.close();
 }
 station.addEventListener('change',()=>{currentStation=station.value;loadAll();}); 
@@ -753,10 +819,12 @@ runIntro();loadAll();connectWS();loadRemedies();loadDoctors();
 let aqiMap=null,mapMarkers=[],mapHalos=[],mapHeat=null,mapPayload=null,mapHeatOn=true,mapHalosOn=true,mapPlayback=null,mapSelectedHours=0;
 const mapPalette=a=>a<=50?'#58a96b':a<=100?'#a5b95b':a<=200?'#e0b94f':a<=300?'#e88943':a<=400?'#e34e43':'#c92e4a';
 function initAqiMap(){
- const el=document.getElementById('aqiMap');if(!el||!window.L)return;
+ const el=document.getElementById('aqiMap');if(!el)return;if(!window.L){setText('mapStatus','Map library unavailable · station data may still be viewed above');return;}
  aqiMap=L.map(el,{scrollWheelZoom:false}).setView([29.3,77.2],6);
  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(aqiMap);
  setTimeout(()=>aqiMap.invalidateSize(),250);
+ if(window.ResizeObserver){const mapResizeObserver=new ResizeObserver(()=>aqiMap&&aqiMap.invalidateSize({pan:false}));mapResizeObserver.observe(el);}
+ window.addEventListener('orientationchange',()=>setTimeout(()=>aqiMap&&aqiMap.invalidateSize({pan:false}),250),{passive:true});
  loadAqiMap();
 }
 function forecastAqiFor(sid,hours){
@@ -772,7 +840,7 @@ function drawAqiMap(){
  const timeline=document.getElementById('mapTimeline'),timelineLabel=document.getElementById('mapTimelineLabel');if(timeline&&Number(timeline.value)!==hours)timeline.value=String(hours);if(timelineLabel)timelineLabel.textContent=hours===0?'Now':(hours<48?'+'+hours+'h':'Day '+(hours/24));
  (mapPayload.stations||[]).forEach(s=>{
   const lat=Number(s.latitude),lon=Number(s.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
-  const predicted=forecastAqiFor(s.station_id,hours),aqi=Number(hours?(predicted?.aqi??NaN):s.aqi);if(!Number.isFinite(aqi))return;
+  const predicted=forecastAqiFor(s.station_id,hours),rawAqi=hours?predicted?.aqi:s.aqi,aqi=rawAqi===null||rawAqi===undefined?NaN:Number(rawAqi);if(!Number.isFinite(aqi))return;
   const color=mapPalette(aqi),name=s.label||s.area||s.station_id,reading=s.reading||{},futureReading=hours?predicted:reading;
   const category=aqi<=50?'Good':aqi<=100?'Satisfactory':aqi<=200?'Moderate':aqi<=300?'Poor':aqi<=400?'Very Poor':'Severe';
   const when=hours?(predicted?.ts||'—'):(s.timestamp||'—');
@@ -783,14 +851,23 @@ function drawAqiMap(){
   samples.push([lat,lon,Math.max(.12,Math.min(1,aqi/500))]);
   if(mapHalosOn&&aqi>200){const halo=L.circle([lat,lon],{radius:25000,color,weight:1,dashArray:'5 6',fillColor:color,fillOpacity:.12}).bindTooltip('Illustrative alert halo · not a measured boundary').addTo(aqiMap);mapHalos.push(halo);}
  });
+ (mapPayload.stations||[]).forEach(s=>{
+  const lat=Number(s.latitude),lon=Number(s.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+  const point=hours?forecastAqiFor(s.station_id,hours):null;
+  const value=hours?point?.aqi:s.aqi;if(value!==null&&value!==undefined&&Number.isFinite(Number(value)))return;
+  const name=s.label||s.area||s.station_id,stamp=s.timestamp?new Date(s.timestamp).toLocaleString():'timestamp unavailable';
+  const message=hours?'No forecast point is available at this time.':'Current AQI is unavailable. Last historical timestamp: '+stamp+'.';
+  const icon=L.divIcon({className:'',html:'<div class="aqi-map-marker unavailable-marker" aria-label="AQI unavailable">—</div>',iconSize:[42,42],iconAnchor:[21,21]});
+  const marker=L.marker([lat,lon],{icon}).bindPopup(`<div class="map-popup"><strong>${name}</strong><div class="popup-aqi">AQI unavailable</div><small>${message}<br>Source: ${s.source||'unavailable'}</small></div>`).addTo(aqiMap);mapMarkers.push(marker);
+ });
  if(mapHeatOn&&samples.length&&L.heatLayer){mapHeat=L.heatLayer(samples,{radius:48,blur:34,maxZoom:8,max:1,gradient:{0.15:'#79a66d',0.35:'#d0c66d',0.55:'#e8a34e',0.75:'#dc6848',1:'#b72e45'}}).addTo(aqiMap);}
- const count=samples.length,ts=mapPayload.data_as_of?new Date(mapPayload.data_as_of).toLocaleString():'';
- const status=document.getElementById('mapStatus');if(status)status.textContent=`${count} sampled locations · ${hours?`+${hours}h outlook`:'current'}${ts&&!hours?' · '+ts:''}`;
+ const count=samples.length,total=(mapPayload.stations||[]).length,unavailable=Math.max(0,total-count),ts=mapPayload.data_as_of?new Date(mapPayload.data_as_of).toLocaleString():'';
+ const status=document.getElementById('mapStatus');if(status)status.textContent=count?`${count} available AQI values · ${unavailable} unavailable · ${hours?`+${hours}h outlook`:'current'}${ts&&!hours?' · '+ts:''}`:`No AQI values available · ${total} configured locations · basemap remains available`;
  const note=document.getElementById('mapNote');if(note)note.textContent=(mapPayload.spatial_note||'')+' Forecast layer uses hourly CAMS pollutant forecasts sampled every 3 hours and converted to CPCB-breakpoint AQI; these are model-grid estimates, not ground-monitor forecasts.';
 }
 function loadAqiMap(){
  const status=document.getElementById('mapStatus');if(status)status.textContent='Fetching regional AQI…';
- api('/api/map').then(data=>{mapPayload=data;const slider=document.getElementById('mapTimeline'),select=document.getElementById('mapTime');const forecasts=Object.values(data.forecast||{});const maxHours=forecasts.reduce((max,item)=>{const base=new Date(item.base_time).getTime();return Math.max(max,...(item.points||[]).map(point=>{const ts=new Date(point.ts).getTime();return Number.isFinite(ts)&&Number.isFinite(base)?Math.floor((ts-base)/10800000)*3:0;}));},0);if(slider){slider.max=String(Math.max(0,maxHours));slider.disabled=maxHours===0;}if(select)[...select.options].forEach(option=>{option.disabled=Number(option.value)>maxHours;});if(Number(select?.value||0)>maxHours&&select)select.value='0';if(maxHours===0&&status)status.textContent='Current station estimates · no forecast timeline available';drawAqiMap()}).catch(err=>{if(status)status.textContent='Map data unavailable · '+(err?.message||'API error')});
+ api('/api/map').then(data=>{mapPayload=data;const slider=document.getElementById('mapTimeline'),select=document.getElementById('mapTime');const forecasts=Object.values(data.forecast||{});const maxHours=forecasts.reduce((max,item)=>{const base=new Date(item.base_time).getTime();return Math.max(max,...(item.points||[]).map(point=>{const ts=new Date(point.ts).getTime();return Number.isFinite(ts)&&Number.isFinite(base)?Math.floor((ts-base)/10800000)*3:0;}));},0);if(slider){slider.max=String(Math.max(0,maxHours));slider.disabled=maxHours===0;}if(select)[...select.options].forEach(option=>{option.disabled=Number(option.value)>maxHours;});if(Number(select?.value||0)>maxHours&&select)select.value='0';drawAqiMap()}).catch(err=>{if(status)status.textContent='Map data unavailable · showing the basemap only';console.warn('Regional AQI map request failed',err)});
 }
 const mapTimeEl=document.getElementById('mapTime');if(mapTimeEl)mapTimeEl.addEventListener('change',()=>{mapSelectedHours=Number(mapTimeEl.value||0);drawAqiMap()});
 const mapTimeline=document.getElementById('mapTimeline');if(mapTimeline)mapTimeline.addEventListener('input',()=>{const sel=document.getElementById('mapTime');if(sel)sel.value=mapTimeline.value==='0'?'0':(Number(mapTimeline.value)<=24?'24':Number(mapTimeline.value)<=48?'48':Number(mapTimeline.value)<=72?'72':Number(mapTimeline.value)<=120?'120':'168');drawAqiMapAt(Number(mapTimeline.value));});

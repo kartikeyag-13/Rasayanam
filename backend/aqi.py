@@ -177,6 +177,27 @@ def sub_index_np(pollutant: str, conc: Sequence[float] | np.ndarray) -> np.ndarr
     return out
 
 
+def overall_aqi(pollutants: Mapping[str, float | None]) -> tuple[float | None, str | None]:
+    """Return the highest valid sub-index when CPCB's minimum species rule is met.
+
+    CPCB requires at least three valid pollutant sub-indices, including PM2.5
+    or PM10, for an overall AQI. CAMS inputs remain model estimates and this
+    helper does not make them equivalent to the CPCB running-average monitor
+    calculation.
+    """
+    indices = {}
+    for key, concentration in pollutants.items():
+        if key not in BREAKPOINTS:
+            continue
+        value = sub_index(key, concentration)
+        if value is not None:
+            indices[key] = value
+    if len(indices) < 3 or not ({"pm25", "pm10"} & indices.keys()):
+        return None, None
+    dominant = max(indices, key=indices.get)
+    return indices[dominant], dominant
+
+
 def aqi_from_frame(cols: Mapping[str, Sequence[float]]) -> tuple[np.ndarray, np.ndarray]:
     """Overall AQI per row from pollutant columns.
 
@@ -190,7 +211,12 @@ def aqi_from_frame(cols: Mapping[str, Sequence[float]]) -> tuple[np.ndarray, np.
     filled = np.where(np.isnan(stack), -1.0, stack)
     dom = np.argmax(filled, axis=0)
     aqi = stack[dom, np.arange(stack.shape[1])]
-    aqi = np.where(aqi < 0, np.nan, aqi)
+    valid_counts = np.sum(np.isfinite(stack), axis=0)
+    particulate = np.zeros(stack.shape[1], dtype=bool)
+    for idx, name in enumerate(names):
+        if name in ("pm25", "pm10"):
+            particulate |= np.isfinite(stack[idx])
+    aqi = np.where((aqi < 0) | (valid_counts < 3) | ~particulate, np.nan, aqi)
     return aqi, dom
 
 

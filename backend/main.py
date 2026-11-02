@@ -21,12 +21,14 @@ import logging
 import os
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from . import content
 from .aqi import classify
@@ -48,6 +50,7 @@ feed: DataFeed | None = None
 svc: ForecastService | None = None
 live_provider: LiveDataProvider | None = None
 _seq = itertools.count(1)
+_UNSET = object()
 
 
 # ------------------------------------------------------------- websocket hub --
@@ -106,23 +109,74 @@ def _live_bundle(station_meta: dict) -> dict | None:
         return None
 
 
+def _live_bundles(station_meta: dict[str, dict]) -> dict[str, dict]:
+    """Fetch all configured locations together through the shared provider."""
+    if live_provider is None:
+        return {}
+    try:
+        return live_provider.get_stations(list(station_meta.values()))
+    except Exception as exc:
+        logger.warning("live provider batch unavailable: %s", exc)
+        return {}
+
+
 def _live_record(station_meta: dict) -> dict | None:
     bundle = _live_bundle(station_meta)
     return bundle.get("current") if bundle else None
 
 
-def _current_record(station_id: str, meta: dict) -> tuple[dict, str]:
-    live = _live_record(meta)
-    if live is not None:
-        return live, "external_model_estimate"
+def _current_record(station_id: str, meta: dict, bundle=_UNSET) -> tuple[dict, str]:
+    if bundle is _UNSET:
+        bundle = _live_bundle(meta)
+    live = bundle.get("current") if bundle else None
+    if live is not None and live.get("aqi") is None:
+        live = dict(live)
+        live["current_available"] = False
+        live["cache_status"] = bundle.get("cache_status", "fresh")
+        live["cache_age_seconds"] = bundle.get("cache_age_seconds", 0.0)
+        live["source_note"] = "Current CAMS pollutant values do not meet the minimum coverage for an overall AQI."
+        return live, "insufficient_current_data"
+    if live is not None and live.get("aqi") is not None:
+        try:
+            observed = datetime.fromisoformat(str(live["timestamp"]).replace("Z", "+00:00"))
+            if observed.tzinfo is None:
+                observed = observed.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            age = (datetime.now(timezone.utc) - observed.astimezone(timezone.utc)).total_seconds()
+        except (TypeError, ValueError):
+            age = float("inf")
+        live = dict(live)
+        live["data_age_seconds"] = max(0.0, age)
+        live["cache_status"] = bundle.get("cache_status", "fresh")
+        live["cache_age_seconds"] = bundle.get("cache_age_seconds", 0.0)
+        max_age = max(3600, int(os.environ.get("LIVE_DATA_MAX_OBSERVATION_AGE_SECONDS", "43200")))
+        if age <= max_age and age >= -3600:
+            cache_status = bundle.get("cache_status", "fresh")
+            if cache_status == "stale_cache":
+                live["source_note"] = "Upstream refresh failed; showing the last successful model estimate with its observation timestamp."
+                return live, "stale_cache"
+            return live, "external_model_estimate"
+        live["current_available"] = False
+        live["source_note"] = "The provider returned an observation outside the 12-hour current-data window."
+        live["historical_observation"] = {"timestamp": live.get("timestamp"), "aqi": live.get("aqi")}
+        return live, "provider_observation_stale"
     rec = _require_feed().latest(station_id)
-    rec["source"] = "historical_csv_fallback"
-    rec["source_note"] = "Live provider unavailable; showing last historical CSV observation."
+    rec["source"] = "Historical project CSV"
+    rec["source_status"] = "historical_fallback"
+    rec["current_available"] = False
+    rec["historical_observation"] = {"timestamp": rec.get("timestamp"), "aqi": rec.get("aqi")}
+    rec["source_note"] = "Current air quality is unavailable. The dataset's last observation is shown as historical context only."
     return rec, "historical_fallback"
 
 
-def _station_payload(rec: dict, meta: dict) -> dict:
-    cls = classify(rec["aqi"])
+def _station_payload(rec: dict, meta: dict, source_status: str | None = None) -> dict:
+    available = rec.get("current_available", True)
+    cls = classify(rec.get("aqi") if available else None)
+    source_status = source_status or rec.get("source_status") or "external_model_estimate"
+    pollutant_keys = (
+        "pm25", "pm10", "no2", "so2", "co", "temp_c",
+        "relative_humidity_pct", "dew_point_c", "precipitation_mm",
+        "wind_speed_kmh", "wind_direction_deg",
+    )
     return {
         "station_id": rec["station_id"],
         "city": meta["city"],
@@ -134,22 +188,14 @@ def _station_payload(rec: dict, meta: dict) -> dict:
         "timestamp": rec["timestamp"],
         "source": rec.get("source", "historical CSV"),
         "source_note": rec.get("source_note", "Historical dataset observation."),
+        "source_status": source_status,
+        "current_available": bool(available),
+        "data_age_seconds": rec.get("data_age_seconds"),
+        "cache_status": rec.get("cache_status"),
+        "historical_observation": rec.get("historical_observation"),
         "dominant": rec["dominant"],
         "reading": {
-            k: rec[k]
-            for k in (
-                "pm25",
-                "pm10",
-                "no2",
-                "so2",
-                "co",
-                "temp_c",
-                "relative_humidity_pct",
-                "dew_point_c",
-                "precipitation_mm",
-                "wind_speed_kmh",
-                "wind_direction_deg",
-            )
+            k: rec.get(k) if available else None for k in pollutant_keys
         },
         "aqi": cls["aqi"],
         "category": cls["category"],
@@ -175,22 +221,19 @@ def _all_station_payloads(f: DataFeed) -> list[dict]:
 def build_payload(msg_type: str, seq_no: int = 0) -> dict:
     f = _require_feed()
     metas = _meta_map(f)
-    live_bundles = {}
+    live_bundles = _live_bundles(metas)
     current_records = []
     for sid in f.station_ids:
-        bundle = _live_bundle(metas[sid])
-        rec = bundle["current"] if bundle else None
-        if rec is None:
-            rec, _source = _current_record(sid, metas[sid])
-        current_records.append(_station_payload(rec, metas[sid]))
-        if bundle:
-            live_bundles[sid] = bundle
+        rec, source_status = _current_record(sid, metas[sid], live_bundles.get(sid))
+        current_records.append(_station_payload(rec, metas[sid], source_status))
     forecasts = svc.forecast_all(56, live_bundles) if svc else {}
     return {
         "type": msg_type,
         "seq": seq_no,
         "server_time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "interval_seconds": INTERVAL,
+        "connection_status": "connected",
+        "data_status": "available" if any(x["current_available"] for x in current_records) else "unavailable",
         "data_as_of": max((x["timestamp"] for x in current_records), default=f.latest_ts.isoformat()),
         "stations": current_records,
         "forecast": {
@@ -219,7 +262,7 @@ async def broadcast_loop() -> None:
             logger.info("broadcast tick with no clients — skipping push")
             continue
         try:
-            payload = build_payload("broadcast", next(_seq))
+            payload = await run_in_threadpool(build_payload, "broadcast", next(_seq))
             delivered = await hub.broadcast(payload)
             logger.info(
                 "broadcast seq=%s -> %d client(s) (data as of %s)",
@@ -280,7 +323,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     hub.add(ws)
     logger.info("ws client connected (%d online)", len(hub))
     try:
-        await ws.send_text(json.dumps(build_payload("snapshot"), separators=(",", ":")))
+        snapshot = await run_in_threadpool(build_payload, "snapshot")
+        await ws.send_text(json.dumps(snapshot, separators=(",", ":")))
         while True:
             await ws.receive_text()  # clients are silent; this waits for frames / disconnect
     except WebSocketDisconnect:
@@ -324,13 +368,17 @@ def current(station: str | None = Query(None)) -> dict:
         if station not in metas:
             raise HTTPException(status_code=404, detail=f"unknown station: {station}")
         rec, source_status = _current_record(station, metas[station])
+        payload = _station_payload(rec, metas[station], source_status)
         return {"data_as_of": rec["timestamp"], "source_status": source_status,
-                "station": _station_payload(rec, metas[station])}
+                "data_status": "available" if payload["current_available"] else "unavailable",
+                "station": payload}
+    bundles = _live_bundles(metas)
     items = []
     for sid in f.station_ids:
-        rec, _status = _current_record(sid, metas[sid])
-        items.append(_station_payload(rec, metas[sid]))
+        rec, source_status = _current_record(sid, metas[sid], bundles.get(sid))
+        items.append(_station_payload(rec, metas[sid], source_status))
     return {"data_as_of": max((x["timestamp"] for x in items), default=f.latest_ts.isoformat()),
+            "data_status": "available" if any(x["current_available"] for x in items) else "unavailable",
             "stations": items}
 
 
@@ -345,19 +393,15 @@ def map_data() -> dict:
     f = _require_feed()
     metas = _meta_map(f)
     current_items = []
-    live_bundles = {}
+    live_bundles = _live_bundles(metas)
     for sid in f.station_ids:
-        bundle = _live_bundle(metas[sid])
-        rec = bundle["current"] if bundle else None
-        if rec is None:
-            rec, _status = _current_record(sid, metas[sid])
-        current_items.append(_station_payload(rec, metas[sid]))
-        if bundle:
-            live_bundles[sid] = bundle
+        rec, source_status = _current_record(sid, metas[sid], live_bundles.get(sid))
+        current_items.append(_station_payload(rec, metas[sid], source_status))
     forecasts = svc.forecast_all(56, live_bundles) if svc else {}
     return {
         "region": "NCR · Punjab · Haryana",
         "data_as_of": max((x["timestamp"] for x in current_items), default=None),
+        "data_status": "available" if any(x["current_available"] for x in current_items) else "unavailable",
         "stations": current_items,
         "forecast": {
             sid: {"base_time": value["base_time"], "step_hours": value["step_hours"],
@@ -411,7 +455,7 @@ def history(
             logger.warning("live history unavailable for %s: %s", sid, exc)
             return {"station_id": sid, "count": 0, "points": [],
                     "source": "Live history unavailable",
-                    "source_note": str(exc)}
+                    "source_note": "The provider could not supply recent history. Historical data is not substituted for this range."}
 
     # Longer ranges are historical project data, not recent live observations.
     points = f.history(sid, hours=hours, max_points=max_points)
@@ -436,11 +480,7 @@ def forecast(
         bundle = _live_bundle(_meta_map(f)[station])
         result = {station: svc.forecast_all(steps, {station: bundle} if bundle else {}).get(station)}
     else:
-        live_bundles = {}
-        for sid in f.station_ids:
-            bundle = _live_bundle(_meta_map(f)[sid])
-            if bundle is not None:
-                live_bundles[sid] = bundle
+        live_bundles = _live_bundles(_meta_map(f))
         result = svc.forecast_all(steps, live_bundles)
     return {"model": svc.info, "stations": result}
 

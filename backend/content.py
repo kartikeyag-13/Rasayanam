@@ -60,8 +60,8 @@ ARTICLES: list[dict] = [
         "source": "Central Pollution Control Board (CPCB), India",
         "url": "https://cpcb.nic.in/",
         "tag": "Indian standards",
-        "summary": "The Indian AQI framework converts available pollutant concentrations into sub-indices, then uses the highest valid sub-index to describe air quality. CPCB's full framework covers more pollutant species than the five currently available to Rasayanam.",
-        "why_it_matters": "Rasayanam applies CPCB concentration breakpoints to its available CAMS pollutants. Its gridded estimates are useful for context, but are not official CPCB reference-monitor AQI readings.",
+        "summary": "The Indian AQI framework converts pollutant concentrations into sub-indices and reports the highest one only when at least three pollutant sub-indices are valid, including PM2.5 or PM10. CPCB's full framework covers more species and averaging requirements than Rasayanam's model data.",
+        "why_it_matters": "Rasayanam applies CPCB breakpoints to CAMS model concentrations averaged over trailing 24-hour windows (8 hours for CO) where minimum hourly coverage exists. These model estimates still lack CPCB monitor validation and the full pollutant set.",
     },
     {
         "id": "caqm-grap",

@@ -18,7 +18,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from backend.aqi import classify, sub_index
+from backend.aqi import classify, overall_aqi
 from ml.features import (
     FEATURE_COLUMNS,
     HISTORY_KEYS,
@@ -191,12 +191,14 @@ class ForecastService:
     def forecast_station_from_cams(self, station_id: str, live_bundle: dict, steps: int = DEFAULT_STEPS) -> dict:
         """Build a 3-hourly AQI outlook from CAMS hourly pollutant forecasts.
 
-        This is a provider-model forecast, not the local recursive ML model. We
-        calculate CPCB sub-indices independently for each future hourly sample.
+        This is a provider-model forecast, not the local recursive ML model.
+        CPCB-style breakpoints are applied to trailing CAMS concentration
+        averages (24 hours, or 8 hours for CO) where minimum coverage exists.
         Missing upstream values are omitted; we never fill them by repeating a
         previous pollutant value.
         """
         from datetime import datetime, timedelta
+        from .live import average_cams_concentrations
 
         current = live_bundle.get("current") or {}
         hourly = live_bundle.get("air_hourly") or {}
@@ -251,19 +253,11 @@ class ForecastService:
                 continue
             _, dt, idx = min(candidates, key=lambda item: item[0])
             used.add(idx)
-            values = {}
-            for short, key in fields.items():
-                series = hourly.get(key) or []
-                raw = series[idx] if idx < len(series) else None
-                if raw is None:
-                    values[short] = None
-                else:
-                    values[short] = float(raw) / (1000.0 if short == "co" else 1.0)
-            indices = {k: sub_index(k, v) for k, v in values.items() if v is not None}
-            indices = {k: v for k, v in indices.items() if v is not None}
-            if not indices:
+            values = average_cams_concentrations(hourly, dt)
+            aqi_value, dominant = overall_aqi(values)
+            if aqi_value is None:
                 continue
-            aqi_value = int(round(max(indices.values())))
+            aqi_value = int(round(aqi_value))
             category = classify(aqi_value)
             weather_at = {}
             nearest_weather = min(weather_parsed, key=lambda item: abs((item[0] - dt).total_seconds()), default=None)
@@ -277,7 +271,7 @@ class ForecastService:
             points.append({
                 "ts": dt.isoformat(), "aqi": aqi_value, "pm25": values["pm25"],
                 "pm10": values["pm10"], "no2": values["no2"], "so2": values["so2"],
-                "co": values["co"], "dominant": max(indices, key=indices.get),
+                "co": values["co"], "dominant": dominant,
                 "category": category["category"], "color": category["color"],
                 **weather_at,
             })
@@ -293,7 +287,7 @@ class ForecastService:
             "forecast_type": "cams_air_quality_model", "step_hours": 3,
             "base_time": base.isoformat(), "base_source": current.get("source", "Open-Meteo CAMS"),
             "forecast_source": "Open-Meteo Air Quality API · CAMS model forecast",
-            "confidence_note": "Seven-day outlook uses hourly CAMS pollutant forecasts sampled at 3-hour intervals and converted with Rasayanam's CPCB breakpoint calculation. These are gridded model estimates, not CPCB monitor forecasts. Forecast uncertainty increases with lead time; availability may end before exactly 168 hours.",
+            "confidence_note": "CAMS concentrations are averaged over trailing 24-hour windows (8 hours for CO), requiring minimum hourly coverage, then sampled at 3-hour intervals and converted with Rasayanam's CPCB breakpoint calculation. These are gridded model estimates, not CPCB monitor forecasts. Forecast uncertainty increases with lead time; availability may end before exactly 168 hours.",
             "points": points,
             "next_24h": {"aqi": next_day["aqi"], "pm25": next_day["pm25"], "from": base.isoformat(), "ts": next_day["ts"]},
             "peak": {"aqi": peak["aqi"], "ts": peak["ts"], "category": peak["category"], "color": peak["color"]},

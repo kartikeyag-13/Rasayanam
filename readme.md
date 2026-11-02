@@ -20,13 +20,13 @@ Air pollution in Delhi-NCR, Punjab and Haryana spikes dramatically around Diwali
 ## Features
 
 ### 1. Current AQI Dashboard (CAMS model-grid estimate + WebSocket)
-- Current pollutant concentrations are fetched per station from the Open-Meteo Air Quality API (CAMS) and converted to a **CPCB-style AQI** using this project's `backend/aqi.py` breakpoints.
+- Current pollutant concentrations are fetched from the Open-Meteo Air Quality API (CAMS) and converted to a **CPCB-breakpoint AQI estimate** using this project's `backend/aqi.py`.
 - The source is a gridded atmospheric-composition model estimate (roughly 11–45 km), **not a CPCB reference-monitor measurement**. The UI labels this provenance explicitly.
-- The live card applies CPCB concentration breakpoints to the provider's current instantaneous model values. It does not reconstruct CPCB's rolling 24-hour/8-hour station averages, so it should not be expected to numerically match CPCB's monitoring dashboard or other AQI providers.
+- The live card applies CPCB concentration breakpoints to trailing CAMS model averages (24 hours for most species, 8 hours for CO), only when the available hourly coverage meets minimum thresholds. It remains a model estimate and is not expected to match CPCB's validated monitoring dashboard or other AQI providers.
 - The provider also retrieves recent hourly history and samples it into a 3-hour lag window so the ML model does not seed its current forecast from the stale final 2025 CSV row.
-- If the upstream provider is unavailable, Rasayanam falls back to the latest CSV observation and labels it as historical; it never labels that fallback as live.
-- Per-neighborhood selector across 8 stations. Current estimates are cached for 15 minutes; WebSocket broadcasts default to every 10 minutes.
-- **CPCB-breakpoint AQI estimate** using available PM2.5, PM10, NO₂, SO₂ and CO sub-indices. Missing values are excluded and the highest valid sub-index is used. These are CAMS gridded estimates rather than regulatory 24-hour monitor averages; the result is not an official CPCB station AQI.
+- If current provider data is unavailable, `/api/current` sets `aqi` to `null`, reports the source status and timestamp, and nests the CSV value under `historical_observation`. The dashboard does not render that historical AQI as current.
+- Per-neighborhood selector across 8 stations. A process-local cache refreshes hourly by default; a batch request covers all configured coordinates and a lock prevents concurrent cache stampedes. WebSocket broadcasts default to every 10 minutes.
+- **CPCB-breakpoint AQI estimate** uses the highest valid sub-index only when at least three supported pollutants are valid, including PM2.5 or PM10. CAMS estimates use trailing 24-hour averages (8-hour CO) with minimum coverage, but lack CPCB monitor validation and the full pollutant set.
 - Per-neighborhood selector across **8 monitoring stations**: New Delhi (Safdarjung, Anand Vihar), Gurugram, Noida, Ambala, Hisar, Amritsar, Ludhiana.
 - Auto-updates: the **WebSocket server broadcasts the latest reading + available forecast every 10 minutes** (configurable), with an on-connect snapshot.
 
@@ -83,12 +83,13 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the full system design.
 
 | Endpoint | Type | Description |
 |---|---|---|
-| `/ws` | WebSocket | Live push: latest readings + AQI + forecast, every 10 min |
+| `/ws` | WebSocket | Snapshot and periodic updates; connection status and `data_status` are separate |
 | `/api/health` | GET | Service status |
 | `/api/stations` | GET | Station metadata (id, city, lat/lon) |
-| `/api/current` | GET | Current CAMS gridded estimate converted to CPCB-style AQI; historical CSV fallback is explicitly labelled |
+| `/api/current?station=` | GET | Current CAMS estimate and freshness, or `aqi: null` plus explicit source status and nested historical context |
 | `/api/history?station=&hours=` | GET | Recent CAMS history for ranges up to 48h; if unavailable, returns an empty series with an explanation rather than stale CSV points. Longer ranges use the historical CSV. Response includes `source` and `source_note`. |
 | `/api/forecast?station=&steps=56` | GET | CAMS AQI forecast for returned timestamps; recent-seed local fallback capped at 48 hours, otherwise explicitly unavailable |
+| `/api/map` | GET | All station payloads and per-station forecast; unavailable stations remain represented with null AQI |
 | `/api/diwali` | GET | Historical before/during/after-Diwali climatology |
 | `/api/articles` | GET | Curated respiratory-health article references |
 | `/api/doctors` | GET | Doctor / ENT specialist directory |
@@ -130,7 +131,11 @@ Open **http://localhost:8000**
 | `WS_BROADCAST_INTERVAL` | `600` (10 min) | Seconds between WebSocket broadcasts |
 | `DATA_PATH` | `ncr_punjab_haryana_weather_aqi_2020_2025.csv` | Dataset location |
 | `ARTIFACTS_DIR` | `ml/artifacts` | Trained-model directory |
-| `LIVE_DATA_CACHE_SECONDS` | `900` | Intended cache period for upstream current conditions (15 min; currently set in `backend/live.py`) |
+| `LIVE_DATA_CACHE_SECONDS` | `3600` | Fresh cache lifetime for batched provider responses |
+| `LIVE_DATA_MAX_STALE_SECONDS` | `21600` | Maximum stale-cache age eligible for display, always labelled as cached |
+| `LIVE_DATA_TIMEOUT_SECONDS` | `8` | Timeout per upstream request |
+| `LIVE_DATA_MAX_RETRIES` | `2` | Bounded retry count for transient failures; 429 responses use `Retry-After` and are not immediately retried |
+| `LIVE_DATA_MAX_OBSERVATION_AGE_SECONDS` | `43200` | Maximum observation timestamp age treated as current (12 hours) |
 
 Example — broadcast every 2 minutes for a demo:
 
@@ -142,13 +147,30 @@ WS_BROADCAST_INTERVAL=120 uvicorn backend.main:app --port 8000
 
 ## Current data source, provenance & limitations
 
-Rasayanam queries the public [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) for current PM2.5, PM10, CO, NO2 and SO2 concentrations at each station coordinate. It queries the [Open-Meteo Weather API](https://open-meteo.com/en/docs) for current weather covariates. The API's air-quality current conditions are based on atmospheric model data, not a regulatory ground monitor. Rasayanam computes its displayed index using the project's CPCB breakpoint implementation; this should be described as a **CPCB-breakpoint AQI estimate from CAMS model-grid concentrations**, not an official CPCB station AQI.
+Rasayanam queries the public [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) for current PM2.5, PM10, CO, NO2 and SO2 concentrations and forecast/history at configured coordinates. It queries the [Open-Meteo Weather API](https://open-meteo.com/en/docs) for matching weather data. Both documented APIs accept comma-separated coordinate lists; the service sends at most one batched request per endpoint for all eight stations during a cold refresh. Successful raw endpoint responses and per-station bundles are reused. The API values are atmospheric model data, not regulatory ground-monitor observations.
 
-`backend/aqi.py` interpolates CPCB concentration breakpoints and uses the highest valid sub-index among available species. Null, negative and non-finite concentrations are ignored; with no valid supported pollutant, the result is unavailable. The CSV and current API carry five pollutants, while CPCB's National AQI framework covers additional species and uses 24-hour means for most pollutants (8-hour for CO and O₃). The dashboard therefore reports a **breakpoint estimate from available CAMS pollutants**, not a complete official station AQI. See the [CPCB National AQI report](https://app.cpcbccr.com/ccr_docs/FINAL-REPORT_AQI_.pdf).
+`backend/aqi.py` interpolates the project's CPCB concentration breakpoints, ignores null, negative and non-finite inputs, and reports the maximum sub-index only when at least three supported species are valid and PM2.5 or PM10 is among them. `backend/live.py` averages hourly CAMS model values over trailing 24-hour windows (8 hours for CO) and requires at least 16 (or 6 for CO) hourly values. This improves averaging-period alignment but cannot provide CPCB monitor validation or the full pollutant set. Rasayanam labels its value a **CAMS model estimate using CPCB breakpoints**, never an official CPCB station AQI. See the [CPCB National AQI report](https://cpcb.nic.in/displaypdf.php?id=bWFudWFsLW1vbml0b3JpbmcvQVFJX05BTVBfUmVwX1NlcHRlbWJlcjIwMTYucGRm).
 
 Open-Meteo's Air Quality API documents a maximum of **7 forecast days**. Rasayanam can display up to that provider horizon using hourly CAMS pollutant forecast samples converted to CPCB-breakpoint AQI every three hours. It is a gridded atmospheric-model forecast, not a CPCB ground-monitor forecast. If CAMS is unavailable, a local ML fallback is only returned with a recent live seed and is capped at 48 hours. If no recent seed is available, the forecast is unavailable; later days are not fabricated.
 
-If Open-Meteo is unreachable, `/api/current` falls back to the last row of the 2020–2025 CSV and marks the response `historical_fallback`. Do not present this fallback as today's measured AQI.
+When the provider fails, `/api/current` returns `current_available: false`, `aqi: null`, a status such as `historical_fallback`, and the actual CSV timestamp/AQI in `historical_observation`. The frontend shows the historical timestamp and an unavailable message but never displays that old AQI as today's reading. A previous provider cache may be served for up to six hours after its refresh interval, with `cache_status: stale_cache` and its cache age; it is rejected as current if the observation timestamp is older than the configured 12-hour limit.
+
+### Request management and deployment
+
+`backend/live.py` serializes refreshes within a process, so concurrent REST and WebSocket requests reuse one in-flight batch. Current/history/forecast/map endpoints share this provider. A 429 response is not retried; `Retry-After` is honored and later requests are suppressed until that window expires. Transient network and server errors receive at most two retries with exponential backoff and jitter. Timeouts, malformed provider data, and partial station data are logged and handled as unavailable data. The in-memory cache is per Render process and is lost on restart; correctness does not depend on persistence, and multiple Render instances maintain independent bounded caches.
+
+`render.yaml` binds Uvicorn to `0.0.0.0:$PORT`, installs `requirements.txt`, and uses `/api/health` as the health check. Static assets and model/data paths resolve relative to the checked-out project. Render sleep/restarts clear the process cache; the next request makes a new bounded batch.
+
+Run backend tests and JavaScript syntax validation locally:
+
+```bash
+python -m unittest discover -s tests -v
+python -m py_compile backend/*.py ml/*.py
+python -c "from pathlib import Path; s=Path('static/index.html').read_text(); a=s.index('<script>')+8; b=s.index('</script>',a); Path('/tmp/rasayanam-inline.js').write_text(s[a:b])"
+node --check /tmp/rasayanam-inline.js
+```
+
+Browser viewport testing still needs to be completed in a browser-capable environment.
 
 **Attribution:** Air-quality inputs and estimates are provided by [Open-Meteo](https://open-meteo.com/) using CAMS data. See the [Air Quality API documentation](https://open-meteo.com/en/docs/air-quality-api) and its data-source notes.
 
