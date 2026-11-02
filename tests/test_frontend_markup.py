@@ -34,6 +34,25 @@ class FrontendMarkupTests(unittest.TestCase):
         self.assertIn(".gauge-number{position:relative;z-index:1", self.html)
         self.assertIn(".gauge svg{z-index:0", self.html)
 
+    def test_mobile_hero_keeps_branding_and_heading_in_flow(self):
+        self.assertIn("logo.style.position='static'", self.html)
+        self.assertIn(".topbar .nav{margin-left:auto}", self.html)
+        self.assertIn("padding:124px 0 82px", self.html)
+        self.assertIn(".hero .eyebrow{max-width:100%", self.html)
+        self.assertIn(".heritage-stamp{right:8px;top:0", self.html)
+        self.assertIn(".topbar .brand img{display:block;width:100%;height:auto}", self.html)
+
+    def test_doctor_directory_progressive_disclosure_and_filters(self):
+        self.assertIn('id="doctorMore" type="button" aria-controls="doctorGrid" aria-expanded="false" hidden', self.html)
+        self.assertIn("Math.min(3,filtered.length)", self.html)
+        self.assertIn("const showAll=hasFilters||doctorExpanded", self.html)
+        self.assertIn("Array.isArray(d.specialties)?d.specialties", self.html)
+        self.assertIn("more.textContent=doctorExpanded?'Show less':'View all doctors ('", self.html)
+        self.assertIn("card.inert=collapsed", self.html)
+        self.assertIn("if(d.website)", self.html)
+        self.assertIn("$('#doctorCity').addEventListener('input',updateDoctorFilters)", self.html)
+        self.assertIn("$('#doctorSpecialty').addEventListener('change',updateDoctorFilters)", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

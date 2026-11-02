@@ -43,7 +43,7 @@ Air pollution in Delhi-NCR, Punjab and Haryana spikes dramatically around Diwali
 - **Dynamic health advisory** that changes with the live AQI category (what to do right now).
 - **Guided breathing exercises** — box breathing, 4-7-8, and diaphragmatic breathing with an interactive animated pacer.
 - **Herbal teas & home remedies** for irritation, cough, congestion, throat dryness and eye discomfort (turmeric milk, tulsi-ginger tea, mulethi, steam inhalation, ...).
-- **Doctor & ENT specialist directory** for the nearby area — searchable filter by city and specialty.
+- **Care directory** of supplied hospitals and clinics — searchable by city and specialty, initially showing three listings with an inline accessible expand/collapse control. Existing provider records and verified contact links remain available; no individual clinician details are inferred.
 
 ### 5. Learn Section
 - Curated references to authoritative articles (WHO, CPCB, American Lung Association, NIH/EPA, etc.) on how high AQI causes respiratory and cardiovascular issues.
