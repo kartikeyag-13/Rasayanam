@@ -53,6 +53,20 @@ class FrontendMarkupTests(unittest.TestCase):
         self.assertIn("$('#doctorCity').addEventListener('input',updateDoctorFilters)", self.html)
         self.assertIn("$('#doctorSpecialty').addEventListener('change',updateDoctorFilters)", self.html)
 
+    def test_leaf_and_labels_share_logo_timeline_and_settle(self):
+        self.assertEqual(self.html.count('id="heroLeaf"'), 1)
+        self.assertEqual(self.html.count('id="brandLogo"'), 1)
+        self.assertIn("animation.startTime=coordinatedStart", self.html)
+        self.assertIn("animateHeroComposition(coordinatedStart)", self.html)
+        self.assertIn("leafDrop.startTime=startTime", self.html)
+        self.assertIn("animation.startTime=startTime", self.html)
+        self.assertIn("const duration=3600,entryDelay=1450", self.html)
+        self.assertIn("directions[index]*Math.PI*3", self.html)
+        self.assertIn("{transform:'translate(0px,0px)',opacity:1,offset:1}", self.html)
+        self.assertNotIn("animation:float", self.html)
+        self.assertNotIn("animation:orbit", self.html)
+        self.assertIn("if(skip||reduced){settleLogo();settleHeroComposition()", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()
