@@ -1,0 +1,30 @@
+{
+  "pm25_3h": {
+    "mae": 27.773,
+    "rmse": 34.659,
+    "r2": 0.9034,
+    "baseline_persistence_mae": 38.463,
+    "improvement_over_baseline_pct": 27.8
+  },
+  "aqi_3h": {
+    "mae": 32.195,
+    "rmse": 44.654,
+    "r2": 0.9091,
+    "baseline_persistence_mae": 42.71,
+    "improvement_over_baseline_pct": 24.6
+  },
+  "pm25_24h": {
+    "mae": 27.809,
+    "rmse": 34.641,
+    "r2": 0.9029,
+    "baseline_persistence_mae": 40.73,
+    "improvement_over_baseline_pct": 31.7
+  },
+  "aqi_24h": {
+    "mae": 32.172,
+    "rmse": 44.429,
+    "r2": 0.909,
+    "baseline_persistence_mae": 45.316,
+    "improvement_over_baseline_pct": 29.0
+  }
+}
