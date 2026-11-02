@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particles Swarm Export</title>
+    <link rel="icon" href="data:,">
+    <style>body { margin: 0; overflow: hidden; background: #020308; }</style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+        import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+        import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+
+        import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
+        import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
+        import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
+        import { GPUComputationRenderer } from 'three/addons/misc/GPUComputationRenderer.js';
+
+        // CONFIG
+        const COUNT = 25000;
+        const SPEED_MULT = 0.3;
+        const AUTO_SPIN = true;
+
+        const PHYSICS_MODE = 'fluid';
+        const STIFFNESS = 1.5;
+        const DAMPING = 0.08;
+        const NOISE_STRENGTH = 0;
+        const MOUSE_MODE = 'none';
+        const MOUSE_INFLUENCE = 2.5;
+
+        // SETUP
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 0, 100);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = AUTO_SPIN;
+        controls.autoRotateSpeed = 2.0;
+
+        // POST PROCESSING
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.strength = 0.5; bloomPass.radius = 0.3; bloomPass.threshold = 0.25;
+        composer.addPass(bloomPass);
+
+        
+
+        
+
+        // 3. RADIAL BLUR
+        
+
+const GeometricDistortShader = {
+    uniforms: {
+        'tDiffuse':    { value: null },
+        'uGeoMode':    { value: 0 },     // 0=off 1=kaleid 2=mirrorH 3=mirrorV 4=pixelate 5=fisheye 6=bulge 7=polar
+        'uGeoAmount':  { value: 0.5 },   // generic strength / amount
+        'uSegments':   { value: 6.0 },   // kaleidoscope segments (3–16)
+        'uPixelSize':  { value: 8.0 },   // pixelate block size (2–64)
+        'uResolution': { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform int   uGeoMode;
+        uniform float uGeoAmount;
+        uniform float uSegments;
+        uniform float uPixelSize;
+        uniform vec2  uResolution;
+        varying vec2  vUv;
+
+        #define PI  3.14159265358979
+        #define PI2 6.28318530718
+
+        void main() {
+            if (uGeoMode == 0) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
+
+            vec2 uv = vUv;
+
+            // ── 1. Kaleidoscope ───────────────────────────────────────────────
+            if (uGeoMode == 1) {
+                vec2 p = uv - 0.5;
+                float r = length(p);
+                float a = atan(p.y, p.x);
+                float sliceAngle = PI2 / uSegments;
+                a = mod(a, sliceAngle);
+                if (a > sliceAngle * 0.5) a = sliceAngle - a; // mirror within slice
+                uv = vec2(r * cos(a), r * sin(a)) + 0.5;
+            }
+            // ── 2. Mirror Horizontal ─────────────────────────────────────────
+            else if (uGeoMode == 2) {
+                uv.x = uv.x < 0.5 ? uv.x : 1.0 - uv.x;
+            }
+            // ── 3. Mirror Vertical ───────────────────────────────────────────
+            else if (uGeoMode == 3) {
+                uv.y = uv.y < 0.5 ? uv.y : 1.0 - uv.y;
+            }
+            // ── 4. Pixelate ───────────────────────────────────────────────────
+            else if (uGeoMode == 4) {
+                vec2 blockSize = vec2(uPixelSize) / uResolution;
+                uv = floor(uv / blockSize) * blockSize + blockSize * 0.5;
+            }
+            // ── 5. Fisheye / Spherize ─────────────────────────────────────────
+            else if (uGeoMode == 5) {
+                vec2 p = uv * 2.0 - 1.0;
+                float len = length(p);
+                if (len < 1.0) {
+                    float z = sqrt(1.0 - len * len * uGeoAmount);
+                    float theta = atan(len / z) * (1.0 / PI);
+                    uv = p * (theta / len) * 0.5 + 0.5;
+                }
+            }
+            // ── 6. Bulge / Pinch ──────────────────────────────────────────────
+            else if (uGeoMode == 6) {
+                vec2 p = uv - 0.5;
+                float dist = length(p);
+                float factor = pow(dist, uGeoAmount > 0.5 ? 0.6 : 1.8);
+                uv = normalize(p + 0.00001) * factor * 0.5 + 0.5;
+            }
+            // ── 7. Polar Coordinates ──────────────────────────────────────────
+            else if (uGeoMode == 7) {
+                float r = uv.y;
+                float a = (uv.x - 0.5) * PI2;
+                uv = vec2(r * cos(a), r * sin(a)) * 0.5 + 0.5;
+            }
+
+            gl_FragColor = texture2D(tDiffuse, clamp(uv, 0.001, 0.999));
+        }
+    `
+};
+// --- INJECTED SHADER CONSTANTS ---
+const ColorGradeCompositeShader = {
+    uniforms: {
+        "tDiffuse":    { value: null },
+        "bgColor":     { value: new THREE.Color(0x000000) },
+        "uBrightness": { value: 0.0 },   // -0.5 → +0.5
+        "uContrast":   { value: 1.0 },   // 0.0 → 3.0
+        "uSaturation": { value: 1.0 },   // 0.0 → 3.0
+        "uHueShift":   { value: 0.0 },   // 0.0 → 1.0 (full rotation)
+        "uExposure":   { value: 1.0 },   // 0.1 → 4.0
+        "uToneMap":    { value: 0 },     // 0=off 1=ACES 2=Reinhard 3=Filmic
+        "uTintColor":  { value: new THREE.Color(0xffffff) },
+        "uTintShadow": { value: new THREE.Color(0x000000) },
+        "uTintAmt":    { value: 0.0 },   // 0.0 → 1.0
+        "uInvert":     { value: 0.0 },   // 0=off 1=on
+        "uSolarize":   { value: 0.0 },   // 0=off 0–1=threshold
+        "uPosterize":  { value: 0.0 },   // 0=off 2–8=bands
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec3  bgColor;
+        uniform float uBrightness;
+        uniform float uContrast;
+        uniform float uSaturation;
+        uniform float uHueShift;
+        uniform float uExposure;
+        uniform int   uToneMap;
+        uniform vec3  uTintColor;
+        uniform vec3  uTintShadow;
+        uniform float uTintAmt;
+        uniform float uInvert;
+        uniform float uSolarize;
+        uniform float uPosterize;
+        varying vec2  vUv;
+
+        // Hue rotation matrix (lossless, works on any colour)
+        vec3 rotateHue(vec3 col, float h) {
+            float ang = h * 6.28318530718;
+            float c = cos(ang), s = sin(ang);
+            float sq = 0.57735026919; // 1/sqrt(3)
+            // Rodrigues rotation around grey axis (1,1,1)/sqrt(3)
+            return col * c
+                + cross(vec3(sq,sq,sq), col) * s
+                + vec3(sq,sq,sq) * dot(vec3(sq,sq,sq), col) * (1.0 - c);
+        }
+
+        // Tone mapping
+        vec3 acesToneMap(vec3 x){
+            return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.,1.);
+        }
+        vec3 reinhardToneMap(vec3 x){ return x/(x+1.); }
+        vec3 filmicToneMap(vec3 x){
+            vec3 X=max(vec3(0.),x-0.004);
+            return (X*(6.2*X+0.5))/(X*(6.2*X+1.7)+0.06);
+        }
+
+        void main() {
+            vec4 texel = texture2D(tDiffuse, vUv);
+
+            // 1. Background composite
+            float bgAlpha = clamp(max(texel.r, max(texel.g, texel.b)), 0.0, 1.0);
+            vec3 col = texel.rgb + bgColor * (1.0 - bgAlpha);
+
+            // 2. Exposure
+            col *= uExposure;
+
+            // 3. Tone mapping
+            if (uToneMap == 1) col = acesToneMap(col);
+            else if (uToneMap == 2) col = reinhardToneMap(col);
+            else if (uToneMap == 3) col = filmicToneMap(col);
+
+            // 4. Brightness
+            col = col + uBrightness;
+
+            // 5. Contrast  (pivot at 0.5)
+            col = (col - 0.5) * uContrast + 0.5;
+
+            // 6. Saturation
+            float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+            col = mix(vec3(lum), col, uSaturation);
+
+            // 7. Hue shift
+            if (uHueShift != 0.0) col = rotateHue(col, uHueShift);
+
+            // 8. Duotone (shadow→highlight colour remap)
+            if (uTintAmt > 0.0) {
+                float lumDt = dot(col, vec3(0.2126, 0.7152, 0.0722));
+                vec3 duotone = mix(uTintShadow, uTintColor, lumDt);
+                col = mix(col, duotone, uTintAmt);
+            }
+
+            // 9. Solarize  (partial invert above threshold)
+            if (uSolarize > 0.0) {
+                float lumS = dot(col, vec3(0.2126, 0.7152, 0.0722));
+                float mask = step(uSolarize, lumS);
+                col = mix(col, 1.0 - col, mask);
+            }
+
+            // 10. Invert
+            if (uInvert > 0.5) col = 1.0 - col;
+
+            // 11. Posterize
+            if (uPosterize >= 2.0) {
+                float bands = uPosterize;
+                col = floor(col * bands + 0.5) / bands;
+            }
+
+            gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+        }
+    `
+};
+
+const LiquidMarbleShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'strength': { value: 0.0 },
+        'speed': { value: 0.5 },
+        'scale': { value: 3.0 }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float strength;
+        uniform float speed;
+        uniform float scale;
+        varying vec2 vUv;
+        float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+        float noise(vec2 p){
+            vec2 i=floor(p); vec2 f=fract(p);
+            vec2 u=f*f*(3.0-2.0*f);
+            return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);
+        }
+        vec2 fbm2(vec2 p){
+            float f=0.0; float a=0.5;
+            for(int i=0;i<5;i++){ f+=a*noise(p); p*=2.0; a*=0.5; }
+            return vec2(f, noise(p+vec2(3.7,1.3)));
+        }
+        void main(){
+            if(strength==0.0){ gl_FragColor=texture2D(tDiffuse,vUv); return; }
+            vec2 p = vUv * scale;
+            float t = time * speed;
+            // Domain warp — each layer warps the coordinate space of the next
+            vec2 q = fbm2(p + t);
+            vec2 r = fbm2(p + q + vec2(1.7+t*0.15, 9.2+t*0.05));
+            vec2 warp = fbm2(p + r);
+            vec2 sampledUv = clamp(vUv + (warp - 0.5) * strength * 0.4, 0.001, 0.999);
+            gl_FragColor = texture2D(tDiffuse, sampledUv);
+        }
+    `
+};
+
+const TwirlShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'angle': { value: 0.0 },
+        'radius': { value: 0.5 },
+        'center': { value: new THREE.Vector2(0.5, 0.5) }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float angle;
+        uniform float radius;
+        uniform vec2 center;
+        varying vec2 vUv;
+        void main(){
+            vec2 delta = vUv - center;
+            float dist = length(delta);
+            float twirlAngle = angle * max(0.0, (radius - dist) / radius);
+            float c = cos(twirlAngle), s = sin(twirlAngle);
+            vec2 rotated = vec2(c*delta.x - s*delta.y, s*delta.x + c*delta.y);
+            gl_FragColor = texture2D(tDiffuse, clamp(center + rotated, 0.001, 0.999));
+        }
+    `
+};
+
+const WaveWarpShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'freqX': { value: 10.0 },
+        'freqY': { value: 10.0 },
+        'amplitude': { value: 0.0 },
+        'speed': { value: 1.0 }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float freqX;
+        uniform float freqY;
+        uniform float amplitude;
+        uniform float speed;
+        varying vec2 vUv;
+        void main(){
+            if(amplitude==0.0){ gl_FragColor=texture2D(tDiffuse,vUv); return; }
+            float t = time * speed;
+            vec2 displaced = vUv + vec2(
+                sin(vUv.y * freqX + t) * amplitude,
+                cos(vUv.x * freqY + t) * amplitude
+            );
+            gl_FragColor = texture2D(tDiffuse, clamp(displaced, 0.001, 0.999));
+        }
+    `
+};
+
+const FluidChromaShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'strength': { value: 0.0 },
+        'dispersion': { value: 0.02 },
+        'speed': { value: 0.5 }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float strength;
+        uniform float dispersion;
+        uniform float speed;
+        varying vec2 vUv;
+        
+        void main() {
+            if(strength == 0.0) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
+            
+            float t = time * speed;
+            vec2 p = vUv - 0.5;
+            
+            // Large scale, smooth, organic flow using trig functions instead of high-frequency noise
+            float x1 = sin(p.y * 3.1 + t * 0.7) * cos(p.x * 2.1 + t * 0.9);
+            float y1 = cos(p.x * 3.4 - t * 0.6) * sin(p.y * 2.3 - t * 0.8);
+            
+            float x2 = sin(p.y * 5.2 - t * 1.2 + x1) * cos(p.x * 4.1 + t * 1.1 + y1);
+            float y2 = cos(p.x * 5.5 + t * 1.3 - x1) * sin(p.y * 4.3 - t * 1.0 - y1);
+            
+            // Smooth directional vector
+            vec2 dir = vec2(x2, y2) * strength * 0.2;
+            
+            // Heavy chromatic aberration on the fluid edges
+            float rCol = texture2D(tDiffuse, clamp(vUv + dir * (1.0 + dispersion * 2.0), 0.001, 0.999)).r;
+            float gCol = texture2D(tDiffuse, clamp(vUv + dir, 0.001, 0.999)).g;
+            float bCol = texture2D(tDiffuse, clamp(vUv + dir * (1.0 - dispersion * 2.0), 0.001, 0.999)).b;
+            
+            // Add a subtle iridescent sheen based on the flow derivative
+            float sheen = dot(dir, vec2(0.5)) * 2.0;
+            vec3 iridescence = vec3(
+                0.5 + 0.5 * sin(sheen * 10.0 + 0.0),
+                0.5 + 0.5 * sin(sheen * 10.0 + 2.0),
+                0.5 + 0.5 * sin(sheen * 10.0 + 4.0)
+            ) * 0.15 * strength;
+
+            gl_FragColor = vec4(vec3(rCol, gCol, bCol) + iridescence, 1.0);
+        }
+    `
+};
+
+const PixelMeltShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'amount': { value: 0.0 },
+        'threshold': { value: 0.5 },
+        'angle': { value: 0.0 }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float amount;
+        uniform float threshold;
+        uniform float angle;
+        varying vec2 vUv;
+        
+        float hash(float n) { return fract(sin(n)*43758.5453); }
+        float noise(vec2 p) {
+            vec2 ip = floor(p); vec2 u = fract(p); u = u*u*(3.0-2.0*u);
+            float res = mix(
+                mix(hash(ip.x+ip.y*57.0), hash(ip.x+1.0+ip.y*57.0), u.x),
+                mix(hash(ip.x+(ip.y+1.0)*57.0), hash(ip.x+1.0+(ip.y+1.0)*57.0), u.x), u.y);
+            return res;
+        }
+
+        void main() {
+            if(amount == 0.0) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
+            
+            float angRad = angle * 3.14159265 / 180.0;
+            vec2 dir = vec2(cos(angRad), sin(angRad));
+            
+            vec2 perp = vec2(-dir.y, dir.x);
+            float lineCoord = dot(vUv, perp);
+            
+            float n = noise(vec2(lineCoord * 100.0, time * 0.5));
+            float n2 = noise(vec2(lineCoord * 50.0, time * 0.2));
+            
+            float displacement = 0.0;
+            if (n > threshold) {
+                displacement = (n - threshold) * amount * 0.5 + n2 * amount * 0.5;
+            }
+            
+            vec2 uvOffset = vUv - dir * displacement;
+            vec4 col = texture2D(tDiffuse, clamp(uvOffset, 0.001, 0.999));
+            gl_FragColor = col;
+        }
+    `
+};
+
+const CrystalPrismShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'facets': { value: 10.0 },
+        'refraction': { value: 0.05 },
+        'dispersion': { value: 0.02 }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float facets;
+        uniform float refraction;
+        uniform float dispersion;
+        varying vec2 vUv;
+        
+        vec2 hash2(vec2 p) {
+            p = vec2(dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)));
+            return fract(sin(p)*43758.5453);
+        }
+        
+        void main() {
+            if(refraction <= 0.0) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
+            
+            vec2 p = vUv * facets;
+            vec2 n = floor(p);
+            vec2 f = fract(p);
+            
+            vec2 m_point;
+            float m_dist = 8.0;
+            
+            for(int j=-1; j<=1; j++)
+            for(int i=-1; i<=1; i++) {
+                vec2 g = vec2(float(i),float(j));
+                vec2 o = hash2(n + g);
+                o = 0.5 + 0.5*sin(time * 0.2 + 6.2831*o);
+                vec2 r = g + o - f;
+                float d = dot(r,r);
+                if(d < m_dist) {
+                    m_dist = d;
+                    m_point = r;
+                }
+            }
+            
+            vec2 edgeDist = min(vUv, 1.0 - vUv);
+            float edgeFade = smoothstep(0.0, 0.05, min(edgeDist.x, edgeDist.y));
+            vec2 warp = m_point * refraction * edgeFade;
+            
+            float rCol = texture2D(tDiffuse, clamp(vUv + warp * (1.0 + dispersion), 0.001, 0.999)).r;
+            float gCol = texture2D(tDiffuse, clamp(vUv + warp, 0.001, 0.999)).g;
+            float bCol = texture2D(tDiffuse, clamp(vUv + warp * (1.0 - dispersion), 0.001, 0.999)).b;
+            
+            float highlight = smoothstep(0.2, 0.0, length(m_point)) * 0.15 * clamp(refraction * 10.0, 0.0, 1.0);
+            
+            gl_FragColor = vec4(rCol + highlight, gCol + highlight, bCol + highlight, 1.0);
+        }
+    `
+};
+
+const CinematicArtifactShader = {
+    uniforms: {
+        'tDiffuse':       { value: null },
+        'uHalation':      { value: 0.0 },  // 0.0 → 1.0
+        'uHalationColor': { value: new THREE.Color(0xff4400) },
+        'uScanlines':     { value: 0.0 },  // 0.0 → 1.0
+        'uScanDensity':   { value: 200.0 },// lines per screen (80–400)
+        'uScanSoftness':  { value: 0.5 },  // edge softness
+        'uResolution':    { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uHalation;
+        uniform vec3  uHalationColor;
+        uniform float uScanlines;
+        uniform float uScanDensity;
+        uniform float uScanSoftness;
+        uniform vec2  uResolution;
+        varying vec2 vUv;
+
+        // Simple box blur (5-tap horizontal) for halation glow
+        vec3 boxBlur(vec2 uv, float rad) {
+            vec2 px = vec2(rad) / uResolution;
+            vec3 c = texture2D(tDiffuse, uv).rgb;
+            c += texture2D(tDiffuse, uv + vec2(px.x, 0.)).rgb;
+            c += texture2D(tDiffuse, uv - vec2(px.x, 0.)).rgb;
+            c += texture2D(tDiffuse, uv + vec2(0., px.y)).rgb;
+            c += texture2D(tDiffuse, uv - vec2(0., px.y)).rgb;
+            return c / 5.0;
+        }
+
+        void main() {
+            if (uHalation == 0.0 && uScanlines == 0.0) {
+                gl_FragColor = texture2D(tDiffuse, vUv);
+                return;
+            }
+            vec4 texel = texture2D(tDiffuse, vUv);
+            vec3 col = texel.rgb;
+
+            // Halation: warm glow around bright edges (film emulation)
+            if (uHalation > 0.0) {
+                vec3 blurred = boxBlur(vUv, 8.0);
+                float brightness = dot(blurred, vec3(0.2126, 0.7152, 0.0722));
+                float haloPow = pow(max(0.0, brightness - 0.4), 1.5);
+                vec3 haloColor = uHalationColor * haloPow * uHalation * 2.0;
+                // Additive blend — mimics light leaking through film layers
+                col += haloColor * (1.0 - col); // dodge-style to avoid blowout
+            }
+
+            // CRT Scanlines: horizontal dark lines across the screen
+            if (uScanlines > 0.0) {
+                float lineY = vUv.y * uScanDensity;
+                float wave = sin(lineY * 3.14159265) * 0.5 + 0.5;
+                float line = smoothstep(uScanSoftness, 1.0 - uScanSoftness, wave);
+                float darkness = 1.0 - (1.0 - line) * uScanlines * 0.7;
+                col *= darkness;
+            }
+
+            gl_FragColor = vec4(col, texel.a);
+        }
+    `
+};
+
+const LensSimulationShader = {
+    uniforms: {
+        'tDiffuse':      { value: null },
+        'uTime':         { value: 0.0 },
+        'uLensDist':     { value: 0.0 },  // -1.0 → 1.0 (neg=barrel, pos=pincushion)
+        'uShake':        { value: 0.0 },  // 0.0 → 1.0
+        'uShakeSpeed':   { value: 3.0 },  // shake frequency
+        'uStreaks':       { value: 0.0 }, // 0.0 → 1.0 anamorphic horizontal streaks
+        'uStreakColor':  { value: new THREE.Color(0x88aaff) },
+        'uResolution':   { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uTime;
+        uniform float uLensDist;
+        uniform float uShake;
+        uniform float uShakeSpeed;
+        uniform float uStreaks;
+        uniform vec3  uStreakColor;
+        uniform vec2  uResolution;
+        varying vec2  vUv;
+
+        // Pseudo-random for shake
+        float rand(float n){ return fract(sin(n) * 43758.5453); }
+
+        void main() {
+            if (uLensDist == 0.0 && uShake == 0.0 && uStreaks == 0.0) {
+                gl_FragColor = texture2D(tDiffuse, vUv);
+                return;
+            }
+            vec2 uv = vUv;
+
+            // ── Camera Shake ─────────────────────────────────────────────────
+            if (uShake > 0.0) {
+                float t = floor(uTime * uShakeSpeed);
+                vec2 shakeOffset = vec2(
+                    (rand(t) - 0.5) * 2.0,
+                    (rand(t + 1.7) - 0.5) * 2.0
+                ) * uShake * 0.015;
+                uv += shakeOffset;
+            }
+
+            // ── Lens Distortion (barrel k1 radial) ────────────────────────
+            if (uLensDist != 0.0) {
+                vec2 p = uv * 2.0 - 1.0;
+                float r2 = dot(p, p);
+                float distortion = 1.0 + uLensDist * r2;
+                p *= distortion;
+                uv = p * 0.5 + 0.5;
+            }
+
+            vec4 col = texture2D(tDiffuse, clamp(uv, 0.001, 0.999));
+
+            // ── Anamorphic Streaks (horizontal lens flare lines) ──────────
+            if (uStreaks > 0.0) {
+                float brightness = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
+                float threshold = 0.6;
+                float streakIntensity = max(0.0, brightness - threshold) * uStreaks * 3.0;
+
+                // Sample horizontally to create streak
+                vec3 streak = vec3(0.0);
+                float total = 0.0;
+                float maxWidth = 0.3 * uStreaks;
+                for (int i = -8; i <= 8; i++) {
+                    float offset = float(i) * maxWidth / 8.0;
+                    float weight = exp(-float(i*i) * 0.08); // Gaussian falloff along streak
+                    vec2 sampleUv = vec2(clamp(uv.x + offset, 0.001, 0.999), uv.y);
+                    vec3 s = texture2D(tDiffuse, sampleUv).rgb;
+                    float sBright = dot(s, vec3(0.2126, 0.7152, 0.0722));
+                    streak += s * weight * max(0.0, sBright - threshold);
+                    total += weight;
+                }
+                streak = (streak / total) * uStreakColor;
+                col.rgb += streak * uStreaks * 1.5;
+            }
+
+            gl_FragColor = col;
+        }
+    `
+};
+
+const LiquidGlassShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'amount': { value: 0.0 },
+        'type': { value: 0 },
+        'uGlassScale': { value: 1.0 },
+        'uGlassDistortion': { value: 1.0 },
+        'uEdgeHighlight': { value: 1.0 },
+        'uChromatic': { value: 1.0 },
+        'uResolution': { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float amount;
+        uniform int type;
+        uniform float uGlassScale;
+        uniform float uGlassDistortion;
+        uniform float uEdgeHighlight;
+        uniform float uChromatic;
+        uniform vec2 uResolution;
+        varying vec2 vUv;
+
+        #define PI 3.14159265359
+
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+        float smoothNoise(vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            vec2 u = f*f*(3.0-2.0*f);
+            return mix(mix(hash(i+vec2(0,0)), hash(i+vec2(1,0)), u.x),
+                       mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
+        }
+
+        float fbm(vec2 p) {
+            float v = 0.0; float a = 0.5;
+            for(int i=0; i<3; i++) { v += a * smoothNoise(p); p *= 2.0; a *= 0.5; }
+            return v;
+        }
+
+        // Hexagon grid function
+        vec4 hexCoords(vec2 uv) {
+            vec2 r = vec2(1.0, 1.7320508);
+            vec2 h = r * 0.5;
+            vec2 a = mod(uv, r) - h;
+            vec2 b = mod(uv - h, r) - h;
+            vec2 gv = dot(a, a) < dot(b, b) ? a : b;
+            vec2 id = uv - gv;
+            return vec4(gv.x, gv.y, id.x, id.y);
+        }
+
+        vec4 sampleWithChromatic(vec2 uv, vec2 dir, float dist, vec3 baseHighlight) {
+            float ca = uChromatic * amount * 0.05 * uGlassDistortion;
+            if (ca <= 0.001) {
+                vec4 col = texture2D(tDiffuse, clamp(uv + dir * dist, 0.001, 0.999));
+                col.rgb += baseHighlight * uEdgeHighlight;
+                return col;
+            }
+            vec2 rOffset = dir * (dist + ca);
+            vec2 gOffset = dir * dist;
+            vec2 bOffset = dir * (dist - ca);
+            
+            float r = texture2D(tDiffuse, clamp(uv + rOffset, 0.001, 0.999)).r;
+            float g = texture2D(tDiffuse, clamp(uv + gOffset, 0.001, 0.999)).g;
+            float b = texture2D(tDiffuse, clamp(uv + bOffset, 0.001, 0.999)).b;
+            
+            return vec4(r + baseHighlight.r * uEdgeHighlight, 
+                        g + baseHighlight.g * uEdgeHighlight, 
+                        b + baseHighlight.b * uEdgeHighlight, 1.0);
+        }
+
+        void main() {
+            if (amount == 0.0) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
+
+            vec2 uv = vUv;
+            vec2 sampleUv = uv;
+            vec3 highlight = vec3(0.0);
+            vec2 dir = vec2(0.0);
+            float dist = 0.0;
+
+            if (type == 0) { // ── Fluted ──────────────────────────────────────
+                float strips = max(1.0, 30.0 * uGlassScale);
+                float warpX = uv.x + sin(uv.x * 10.0 + time * 0.2) * 0.02;
+                float phase = warpX * strips;
+                float localX = fract(phase);
+                
+                dir = vec2(1.0, 0.0);
+                dist = (localX - 0.5) * 0.1 * amount * uGlassDistortion;
+                
+                float edge = pow(abs(localX - 0.5) * 2.0, 8.0);
+                highlight = vec3(edge * 0.5 * amount);
+            }
+            else if (type == 1) { // ── Frosted ──────────────────────────────────
+                float scale = max(0.1, 4.0 * uGlassScale);
+                vec2 n1 = vec2(
+                    fbm(uv * scale + vec2(time * 0.1, 0.0)),
+                    fbm(uv * scale + vec2(0.0, time * 0.1))
+                );
+                dir = (n1 - 0.5);
+                dist = amount * 0.12 * uGlassDistortion;
+            }
+            else if (type == 2) { // ── Diamond Cut (NEW) ────────────────────────
+                vec2 p = uv * max(1.0, 20.0 * uGlassScale);
+                p.y += time * 0.5;
+                
+                vec2 p1 = mat2(0.866, -0.5, 0.866, 0.5) * p;
+                vec2 f = fract(p1);
+                vec2 i = floor(p1);
+                
+                float tri = step(f.x, f.y);
+                vec2 center = i + vec2(0.5) + (tri == 1.0 ? vec2(-0.1, 0.1) : vec2(0.1, -0.1));
+                
+                vec2 facetNormal = normalize(p1 - center);
+                dir = mat2(0.866, 0.5, -0.866, 0.5) * facetNormal;
+                
+                dist = amount * 0.08 * uGlassDistortion;
+                
+                float edgeX = min(f.x, 1.0 - f.x);
+                float edgeY = min(f.y, 1.0 - f.y);
+                float edgeDiag = abs(f.x - f.y);
+                float edge = min(min(edgeX, edgeY), edgeDiag);
+                
+                float glint = pow(1.0 - smoothstep(0.0, 0.15, edge), 4.0);
+                highlight = vec3(glint * 0.6 * amount);
+            }
+            else if (type == 3) { // ── Hexagonal Facets (NEW) ───────────────────
+                vec2 p = (uv - 0.5) * (uResolution.x/uResolution.y);
+                p *= max(1.0, 15.0 * uGlassScale);
+                p.y += time * 0.2;
+                
+                vec4 hc = hexCoords(p);
+                
+                float angle = hash(hc.zw) * PI * 2.0;
+                vec2 tilt = vec2(cos(angle), sin(angle));
+                
+                dir = tilt;
+                dist = amount * 0.05 * uGlassDistortion;
+                
+                float hexDist = max(abs(hc.y), dot(abs(hc.xy), vec2(0.866025, 0.5)));
+                float edge = smoothstep(0.42, 0.5, hexDist);
+                highlight = vec3(edge * 0.5 * amount);
+            }
+            else if (type == 4) { // ── Prism / Spectrum ──────────────────────────
+                float sep = amount * 0.04 * max(0.1, uGlassScale) * uGlassDistortion;
+                vec2 rOff = vec2( sep,       sep * 0.5);
+                vec2 gOff = vec2( 0.0,       0.0      );
+                vec2 bOff = vec2(-sep,      -sep * 0.5);
+
+                float angle = time * 0.15;
+                float ca = cos(angle), sa = sin(angle);
+                mat2 rot = mat2(ca, -sa, sa, ca);
+                rOff = rot * rOff;
+                bOff = rot * bOff;
+
+                float r = texture2D(tDiffuse, clamp(uv + rOff, 0.001, 0.999)).r;
+                float g = texture2D(tDiffuse, clamp(uv + gOff, 0.001, 0.999)).g;
+                float b = texture2D(tDiffuse, clamp(uv + bOff, 0.001, 0.999)).b;
+
+                float hue = fract(uv.x + uv.y * 0.5 + time * 0.05);
+                vec3 rainbow;
+                float h6 = hue * 6.0;
+                float fi = floor(h6);
+                float ff = h6 - fi;
+                if      (fi < 1.0) rainbow = vec3(1.0, ff,  0.0);
+                else if (fi < 2.0) rainbow = vec3(1.0-ff, 1.0, 0.0);
+                else if (fi < 3.0) rainbow = vec3(0.0, 1.0, ff);
+                else if (fi < 4.0) rainbow = vec3(0.0, 1.0-ff, 1.0);
+                else if (fi < 5.0) rainbow = vec3(ff, 0.0, 1.0);
+                else               rainbow = vec3(1.0, 0.0, 1.0-ff);
+                
+                rainbow *= 0.3 * amount * uEdgeHighlight; 
+
+                gl_FragColor = vec4(vec3(r, g, b) + rainbow, 1.0);
+                return;
+            }
+            else if (type == 5) { // ── Condensation (NEW) ───────────────────────
+                vec2 p = uv * max(1.0, 8.0 * uGlassScale);
+                p.x *= (uResolution.x / uResolution.y);
+                
+                vec2 gv = fract(p) - 0.5;
+                vec2 id = floor(p);
+                
+                float n = hash(id);
+                float t = time * 0.5 + n * 100.0;
+                float dropSize = mix(0.1, 0.3, hash(id + 13.5));
+                
+                gv.y += sin(t) * 0.2 * step(0.8, hash(id + 7.2)); 
+                
+                float d = length(gv * vec2(1.0, 0.8));
+                
+                if (d < dropSize) {
+                    vec3 normal = normalize(vec3(gv.x, gv.y, dropSize - d));
+                    dir = normal.xy;
+                    dist = amount * 0.15 * uGlassDistortion;
+                    
+                    float spec = pow(max(0.0, dot(normal, normalize(vec3(-1.0, 1.0, 1.0)))), 16.0);
+                    highlight = vec3(spec * uEdgeHighlight * amount);
+                } else {
+                    float scale = 10.0;
+                    vec2 n1 = vec2(fbm(uv * scale), fbm(uv * scale + 1.2));
+                    dir = (n1 - 0.5);
+                    dist = amount * 0.02;
+                }
+            }
+
+            gl_FragColor = sampleWithChromatic(uv, dir, dist, highlight);
+        }
+    `
+};
+
+
+
+        
+
+        
+
+        // 4.5 BACKGROUND COMPOSITE
+        const BgCompositeShader = {
+            uniforms: {
+                "tDiffuse": { value: null },
+                "bgColor": { value: new THREE.Color('#020308') }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform vec3 bgColor;
+                varying vec2 vUv;
+                void main() {
+                    vec4 texel = texture2D( tDiffuse, vUv );
+                    float alpha = clamp(max(texel.r, max(texel.g, texel.b)), 0.0, 1.0);
+                    gl_FragColor = vec4( texel.rgb + bgColor * (1.0 - alpha), 1.0 );
+                }
+            `
+        };
+        const bgCompositePass = new ShaderPass(BgCompositeShader);
+        composer.addPass(bgCompositePass);
+
+        
+
+        // --- CUSTOM POST PROCESSING (Only Active Effects) ---
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+        
+        
+
+        
+
+        if (composer.passes.length > 0) {
+            composer.passes[composer.passes.length - 1].renderToScreen = true;
+        }
+
+
+        // SWARM OBJECTS
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+        const target = new THREE.Vector3();
+        
+        // INSTANCED MESH
+        const geometry = new THREE.TetrahedronGeometry(0.25).clone();
+        
+        const W = Math.ceil(Math.sqrt(COUNT));
+        const H = W;
+        const references = new Float32Array(COUNT * 2);
+        for (let i = 0; i < COUNT; i++) {
+            references[i * 2] = ((i % W) + 0.5) / W;
+            references[i * 2 + 1] = (Math.floor(i / W) + 0.5) / H;
+        }
+        geometry.setAttribute('reference', new THREE.InstancedBufferAttribute(references, 2));
+        
+        const scales = new Float32Array(COUNT);
+        const opacities = new Float32Array(COUNT);
+        for(let i=0; i<COUNT; i++) { scales[i] = 1.0; opacities[i] = 1.0; }
+        geometry.setAttribute('instanceScale', new THREE.InstancedBufferAttribute(scales, 1));
+        geometry.setAttribute('instanceOpacity', new THREE.InstancedBufferAttribute(opacities, 1));
+        window.particleScales = scales;
+        window.particleOpacities = opacities;
+
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        
+        // GPGPU Shader compiler
+        const applyGPGPU = (mat) => {
+            mat.onBeforeCompile = (shader) => {
+                shader.uniforms.texturePosition = { value: null };
+                shader.uniforms.gpgpuEnabled = { value: 1.0 };
+                mat.userData.shader = shader;
+
+                shader.vertexShader = `
+                    attribute vec2 reference;
+                    attribute float instanceScale;
+                    attribute float instanceOpacity;
+                    varying float vInstanceOpacity;
+                    uniform sampler2D texturePosition;
+                    uniform float gpgpuEnabled;
+                ` + shader.vertexShader;
+
+                shader.vertexShader = shader.vertexShader.replace(
+                    '#include <project_vertex>',
+                    `
+                    vec4 mvPosition = vec4( transformed, 1.0 );
+                    #ifdef USE_BATCHING
+                        mvPosition = batchingMatrix * mvPosition;
+                    #endif
+                    #ifdef USE_INSTANCING
+                        mvPosition.xyz *= instanceScale;
+                        vInstanceOpacity = instanceOpacity;
+                        
+                        mat4 m = instanceMatrix;
+                        if (gpgpuEnabled > 0.5) {
+                            m[3] = vec4(0.0, 0.0, 0.0, 1.0);
+                        }
+                        mvPosition = m * mvPosition;
+                        if (gpgpuEnabled > 0.5) {
+                            mvPosition.xyz += texture2D(texturePosition, reference).xyz;
+                        } else {
+                            mvPosition.xyz += vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+                        }
+                    #endif
+                    mvPosition = modelViewMatrix * mvPosition;
+                    gl_Position = projectionMatrix * mvPosition;
+                    `
+                );
+                
+                shader.fragmentShader = `
+                    varying float vInstanceOpacity;
+                ` + shader.fragmentShader;
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <color_fragment>',
+                    `
+                    #include <color_fragment>
+                    diffuseColor.a *= vInstanceOpacity;
+                    `
+                );
+            };
+            if (mat.uniforms) {
+                mat.uniforms.texturePosition = { value: null };
+                mat.uniforms.gpgpuEnabled = { value: 1.0 };
+            }
+            mat.needsUpdate = true;
+        };
+        applyGPGPU(material);
+        
+        const instancedMesh = new THREE.InstancedMesh(geometry, material, COUNT);
+        instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(instancedMesh);
+
+        // DATA ARRAYS
+        const positions = [];
+        const targets = [];
+        for(let i=0; i<COUNT; i++) {
+            const p = new THREE.Vector3((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100);
+            positions.push(p.clone());
+            targets.push(p.clone());
+            instancedMesh.setColorAt(i, color.setHex(0x00ff88)); // Init Color
+        }
+
+        // GPGPU PHYSICS ENGINE CORE
+        let gpuCompute;
+        let positionVariable, velocityVariable;
+        let positionUniforms, velocityUniforms;
+        
+        let targetTex = new THREE.DataTexture(new Float32Array(W * H * 4), W, H, THREE.RGBAFormat, THREE.FloatType);
+        
+        function updateGPGPUTargets() {
+            const data = targetTex.image.data;
+            for (let i = 0; i < W * H; i++) {
+                const idx = i * 4;
+                if (i < COUNT && i < targets.length) {
+                    const p = targets[i];
+                    data[idx] = p.x;
+                    data[idx + 1] = p.y;
+                    data[idx + 2] = p.z;
+                } else {
+                    data[idx] = 999999.0;
+                    data[idx + 1] = 999999.0;
+                    data[idx + 2] = 999999.0;
+                }
+                data[idx + 3] = 1.0;
+            }
+            targetTex.needsUpdate = true;
+        }
+
+        gpuCompute = new GPUComputationRenderer(W, H, renderer);
+        const dtPosition = gpuCompute.createTexture();
+        const dtVelocity = gpuCompute.createTexture();
+        
+        const posArray = dtPosition.image.data;
+        const velArray = dtVelocity.image.data;
+        for (let i = 0; i < W * H; i++) {
+            const idx = i * 4;
+            let x = (Math.random() - 0.5) * 100;
+            let y = (Math.random() - 0.5) * 100;
+            let z = (Math.random() - 0.5) * 100;
+            posArray[idx] = x;
+            posArray[idx + 1] = y;
+            posArray[idx + 2] = z;
+            posArray[idx + 3] = 1.0;
+
+            velArray[idx] = 0.0;
+            velArray[idx + 1] = 0.0;
+            velArray[idx + 2] = 0.0;
+            velArray[idx + 3] = 0.0;
+        }
+
+        const posShader = `
+            void main() {
+                vec2 uv = gl_FragCoord.xy / resolution.xy;
+                vec3 pos = texture2D(texturePosition, uv).xyz;
+                vec3 vel = texture2D(textureVelocity, uv).xyz;
+                pos += vel * 0.016;
+                gl_FragColor = vec4(pos, 1.0);
+            }
+        `;
+
+        const velShader = `
+            uniform float uTime;
+            uniform float uDeltaTime;
+            uniform float uStiffness;
+            uniform float uDamping;
+            uniform float uNoiseStrength;
+            uniform int uPhysicsMode;
+            uniform int uMouseMode;
+            uniform float uMouseInfluence;
+            uniform vec3 uMouse3D;
+            uniform sampler2D textureTarget;
+            uniform vec3 uGravity;
+            uniform vec3 uShockwaveCenter;
+            uniform float uShockwaveForce;
+            uniform float uShockwaveRadius;
+
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            float snoise(vec3 v) {
+                const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+                const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i  = floor(v + dot(v, vec3(C.y)));
+                vec3 x0 = v - i + dot(i, vec3(C.x));
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min(g.xyz, l.zxy);
+                vec3 i2 = max(g.xyz, l.zxy);
+                vec3 x1 = x0 - i1 + vec3(C.x);
+                vec3 x2 = x0 - i2 + vec3(C.y);
+                vec3 x3 = x0 - D.yyy;
+                i = mod289(i);
+                vec4 p = permute(permute(permute(
+                           i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                         + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                         + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+                float n_ = 0.142857142857;
+                vec3 ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z);
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_);
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4(x.xy, y.xy);
+                vec4 b1 = vec4(x.zw, y.zw);
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+                vec3 p0 = vec3(a0.xy, h.x);
+                vec3 p1 = vec3(a0.zw, h.y);
+                vec3 p2 = vec3(a1.xy, h.z);
+                vec3 p3 = vec3(a1.zw, h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+            }
+
+            vec3 curlNoise(vec3 p) {
+                const float e = 0.05;
+                float dx = snoise(vec3(p.x + e, p.y, p.z)) - snoise(vec3(p.x - e, p.y, p.z));
+                float dy = snoise(vec3(p.x, p.y + e, p.z)) - snoise(vec3(p.x, p.y - e, p.z));
+                float dz = snoise(vec3(p.x, p.y, p.z + e)) - snoise(vec3(p.x, p.y, p.z - e));
+                return vec3(dy - dz, dz - dx, dx - dy) / (2.0 * e);
+            }
+
+            void main() {
+                vec2 uv = gl_FragCoord.xy / resolution.xy;
+                vec3 pos = texture2D(texturePosition, uv).xyz;
+                vec3 vel = texture2D(textureVelocity, uv).xyz;
+                vec3 target = texture2D(textureTarget, uv).xyz;
+
+                vec3 force = vec3(0.0);
+
+                // 1. Target Attraction / Spring Force
+                if (uPhysicsMode == 0) {
+                    vec3 desiredVel = (target - pos) * 25.0;
+                    force += (desiredVel - vel) * 40.0;
+                } else {
+                    vec3 springForce = -uStiffness * (pos - target);
+                    force += springForce;
+                }
+
+                // 2. Mouse Force
+                if (uMouseMode > 0) {
+                    float d = distance(pos, uMouse3D);
+                    float radius = uMouseInfluence * 15.0;
+                    if (d < radius && d > 0.1) {
+                        float strength = (1.0 - d / radius);
+                        vec3 mouseDir = normalize(pos - uMouse3D);
+                        if (uMouseMode == 1) {
+                            force -= mouseDir * strength * 150.0;
+                        } else if (uMouseMode == 2) {
+                            force += mouseDir * strength * 150.0;
+                        } else if (uMouseMode == 3) {
+                            vec3 up = vec3(0.0, 1.0, 0.0);
+                            vec3 tangent = normalize(cross(mouseDir, up));
+                            force += tangent * strength * 150.0;
+                        }
+                    }
+                }
+
+                // 3. Curl Noise / Turbulence
+                if (uNoiseStrength > 0.0 || uPhysicsMode == 3) {
+                    float scale = 0.05;
+                    vec3 noiseOffset = curlNoise(pos * scale + vec3(0.0, 0.0, uTime * 0.2));
+                    float currentNoiseStrength = uNoiseStrength * (uPhysicsMode == 3 ? 15.0 : 5.0);
+                    force += noiseOffset * currentNoiseStrength;
+                }
+
+                // 4. Stochastic Flocking
+                if (uPhysicsMode == 2) {
+                    float seed = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
+                    for(int k = 1; k <= 4; k++) {
+                        vec2 sampleUv = fract(uv + vec2(
+                            sin(float(k) * 1.7 + seed + uTime) * 0.27,
+                            cos(float(k) * 2.3 + seed + uTime) * 0.31
+                        ));
+                        vec3 otherPos = texture2D(texturePosition, sampleUv).xyz;
+                        float d = distance(pos, otherPos);
+                        if (d < 4.0 && d > 0.01) {
+                            vec3 repelDir = normalize(pos - otherPos);
+                            force += repelDir * (1.0 - d / 4.0) * 120.0;
+                        }
+                    }
+                }
+
+                // 5. Gravity Override
+                force += uGravity * 100.0;
+
+                // 6. Shockwave (Radial Explosion)
+                if (uShockwaveForce > 0.0) {
+                    float d = distance(pos, uShockwaveCenter);
+                    if (d < uShockwaveRadius && d > 0.1) {
+                        float shockStrength = (1.0 - (d / uShockwaveRadius)) * uShockwaveForce;
+                        vec3 shockDir = normalize(pos - uShockwaveCenter);
+                        force += shockDir * shockStrength * 500.0;
+                    }
+                }
+
+                vel += force * uDeltaTime;
+                vel *= (1.0 - uDamping);
+
+                float maxVel = 800.0;
+                if (length(vel) > maxVel) {
+                    vel = normalize(vel) * maxVel;
+                }
+
+                gl_FragColor = vec4(vel, 1.0);
+            }
+        `;
+
+        positionVariable = gpuCompute.addVariable("texturePosition", posShader, dtPosition);
+        velocityVariable = gpuCompute.addVariable("textureVelocity", velShader, dtVelocity);
+
+        gpuCompute.setVariableDependencies(positionVariable, [positionVariable, velocityVariable]);
+        gpuCompute.setVariableDependencies(velocityVariable, [positionVariable, velocityVariable]);
+
+        positionUniforms = positionVariable.material.uniforms;
+        velocityUniforms = velocityVariable.material.uniforms;
+
+        velocityUniforms.uTime = { value: 0.0 };
+        velocityUniforms.uDeltaTime = { value: 0.016 };
+        
+        let pModeVal = 1;
+        if (PHYSICS_MODE === 'lerp') pModeVal = 0;
+        else if (PHYSICS_MODE === 'spring') pModeVal = 1;
+        else if (PHYSICS_MODE === 'flocking') pModeVal = 2;
+        else if (PHYSICS_MODE === 'fluid') pModeVal = 3;
+        velocityUniforms.uPhysicsMode = { value: pModeVal };
+
+        let mModeVal = 0;
+        if (MOUSE_MODE === 'attract') mModeVal = 1;
+        else if (MOUSE_MODE === 'repel') mModeVal = 2;
+        else if (MOUSE_MODE === 'vortex') mModeVal = 3;
+        velocityUniforms.uMouseMode = { value: mModeVal };
+        velocityUniforms.uMouseInfluence = { value: MOUSE_INFLUENCE };
+        velocityUniforms.uMouse3D = { value: new THREE.Vector3() };
+        velocityUniforms.textureTarget = { value: targetTex };
+        
+        velocityUniforms.uStiffness = { value: STIFFNESS };
+        velocityUniforms.uDamping = { value: DAMPING };
+        velocityUniforms.uNoiseStrength = { value: NOISE_STRENGTH };
+
+        velocityUniforms.uGravity = { value: new THREE.Vector3() };
+        velocityUniforms.uShockwaveCenter = { value: new THREE.Vector3() };
+        velocityUniforms.uShockwaveForce = { value: 0.0 };
+        velocityUniforms.uShockwaveRadius = { value: 0.0 };
+
+        gpuCompute.init();
+
+        // CONTROL STUBS
+        const PARAMS = {"cycle":10,"bScale":6,"scatterRadius":160,"drift":0.6,"flowerCount":10,"fieldSpread":110,"fieldCenterY":0,"flowerSize":7,"flapSpeed":6,"flapAmp":0.55};
+        const addControl = (id, label, min, max, val) => {
+            return PARAMS[id] !== undefined ? PARAMS[id] : val;
+        };
+        const setInfo = () => {};
+        const annotate = () => {};
+
+        const physicsOverrides = {
+            gravity: null,
+            shockwaveCenter: null,
+            shockwaveForce: null,
+            shockwaveRadius: null,
+            stiffness: null,
+            damping: null,
+            noiseStrength: null,
+        };
+
+        const setPhysics = (options) => {
+            if (!options) return;
+            if (options.gravity) {
+                if (!physicsOverrides.gravity) physicsOverrides.gravity = new THREE.Vector3();
+                physicsOverrides.gravity.copy(options.gravity);
+            }
+            if (options.shockwave) {
+                if (options.shockwave.center) {
+                    if (!physicsOverrides.shockwaveCenter) physicsOverrides.shockwaveCenter = new THREE.Vector3();
+                    physicsOverrides.shockwaveCenter.copy(options.shockwave.center);
+                }
+                if (options.shockwave.force !== undefined) physicsOverrides.shockwaveForce = options.shockwave.force;
+                if (options.shockwave.radius !== undefined) physicsOverrides.shockwaveRadius = options.shockwave.radius;
+            }
+            if (options.stiffness !== undefined) physicsOverrides.stiffness = options.stiffness;
+            if (options.drag !== undefined) physicsOverrides.damping = options.drag;
+            if (options.turbulence !== undefined) physicsOverrides.noiseStrength = options.turbulence;
+        };
+
+        const setEffects = (options) => {
+            if (!options) return;
+            if (options.glowIntensity !== undefined && typeof bloomPass !== 'undefined') bloomPass.strength = options.glowIntensity;
+            if (options.glowThreshold !== undefined && typeof bloomPass !== 'undefined') bloomPass.threshold = options.glowThreshold;
+            if (options.motionTrails !== undefined && typeof afterimagePass !== 'undefined') afterimagePass.uniforms['damp'].value = options.motionTrails;
+            if (options.filmGrain !== undefined && typeof filmPass !== 'undefined') {
+                filmPass.uniforms['intensity'].value = options.filmGrain;
+                filmPass.enabled = options.filmGrain > 0;
+            }
+            if (options.vignette !== undefined && typeof vignettePass !== 'undefined') vignettePass.uniforms['darkness'].value = options.vignette;
+            if (options.gaussianBlur !== undefined && typeof hBlurPass !== 'undefined' && typeof vBlurPass !== 'undefined') {
+                if (options.gaussianBlur === 0) {
+                    hBlurPass.enabled = false; vBlurPass.enabled = false;
+                } else {
+                    hBlurPass.enabled = true; vBlurPass.enabled = true;
+                    hBlurPass.uniforms['h'].value = options.gaussianBlur / window.innerWidth;
+                    vBlurPass.uniforms['v'].value = options.gaussianBlur / window.innerHeight;
+                }
+            }
+            if (options.radialBlur !== undefined && typeof radialBlurPass !== 'undefined') {
+                if (options.radialBlur === 0) {
+                    radialBlurPass.enabled = false;
+                } else {
+                    radialBlurPass.enabled = true;
+                    radialBlurPass.uniforms['strength'].value = options.radialBlur;
+                }
+            }
+            if (options.bgColor !== undefined) {
+                if (typeof bgCompositePass !== 'undefined') bgCompositePass.uniforms['bgColor'].value.set(options.bgColor);
+                if (typeof vignettePass !== 'undefined') vignettePass.uniforms['color'].value.set(options.bgColor);
+                document.body.style.background = options.bgColor;
+            }
+        };
+
+        // ANIMATION LOOP
+        const clock = new THREE.Clock();
+
+        // Mouse tracking for physics
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const dummyPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+        const intersectPoint = new THREE.Vector3();
+        
+        window.addEventListener('pointermove', (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime() * SPEED_MULT;
+            
+            // Shader Time Update
+            if(material.uniforms && material.uniforms.uTime) {
+                material.uniforms.uTime.value = time;
+            }
+            if (window.lmPass) window.lmPass.uniforms['time'].value = time;
+            if (window.wavePass) window.wavePass.uniforms['time'].value = time;
+            if (window.lensPass) window.lensPass.uniforms['uTime'].value = time;
+            if (window.liquidGlassPass) window.liquidGlassPass.uniforms['time'].value = time;
+
+            if (velocityUniforms) {
+                raycaster.setFromCamera(mouse, camera);
+                raycaster.ray.intersectPlane(dummyPlane, intersectPoint);
+                velocityUniforms.uMouse3D.value.copy(intersectPoint);
+            }
+
+            controls.update();
+
+            // SWARM LOGIC
+            const count = COUNT; // Alias for user code compatibility
+            for(let i=0; i<COUNT; i++) {
+                 // USER CODE INJECTION START
+                 // ---- Global timing ----
+                 const safeCount = count > 0 ? count : 1;
+                 const cycle = addControl("cycle", "Cycle Length (s)", 4, 20, 10);
+                 const bScale = addControl("bScale", "Butterfly Size", 6, 30, 16);
+                 const scatterRadius = addControl("scatterRadius", "Scatter Spread", 40, 300, 160);
+                 const driftStrength = addControl("drift", "Scatter Drift", 0, 1, 0.6);
+                 const flowerCount = addControl("flowerCount", "Flower Count", 4, 18, 10);
+                 const fieldSpread = addControl("fieldSpread", "Field Radius", 30, 220, 110);
+                 const fieldCenterY = addControl("fieldCenterY", "Field Center Height", -60, 60, 0);
+                 const flowerSize = addControl("flowerSize", "Flower Size", 3, 14, 7);
+                 const flapSpeed = addControl("flapSpeed", "Flap Speed", 1, 12, 6);
+                 const flapAmp = addControl("flapAmp", "Flap Amount", 0.1, 1.2, 0.55);
+                 
+                 const safeCycle = cycle > 0.001 ? cycle : 4;
+                 const phase = (time % safeCycle) / safeCycle;
+                 const progress = 0.5 - 0.5 * Math.cos(phase * 2.0 * Math.PI);
+                 const flapAngle = Math.sin(time * flapSpeed) * flapAmp * progress;
+                 const deg = Math.PI / 180.0;
+                 const u = i / safeCount;
+                 
+                 // ---- Scatter cloud: a soft Gaussian ball (Box-Muller) instead of a hard
+                 // cube, plus a gentle per-particle drift so it never looks frozen. ----
+                 const gh1 = Math.sin(i * 12.9898) * 43758.5453;
+                 const gu1 = Math.max(1e-6, gh1 - Math.floor(gh1));
+                 const gh2 = Math.sin(i * 78.233) * 12543.987;
+                 const gu2 = gh2 - Math.floor(gh2);
+                 const gh3 = Math.sin(i * 39.346) * 25563.641;
+                 const gu3 = Math.max(1e-6, gh3 - Math.floor(gh3));
+                 const gh4 = Math.sin(i * 54.716) * 31415.926;
+                 const gu4 = gh4 - Math.floor(gh4);
+                 const gRadius1 = Math.sqrt(-2.0 * Math.log(gu1));
+                 const gx = gRadius1 * Math.cos(2.0 * Math.PI * gu2);
+                 const gy = gRadius1 * Math.sin(2.0 * Math.PI * gu2);
+                 const gRadius2 = Math.sqrt(-2.0 * Math.log(gu3));
+                 const gz = gRadius2 * Math.cos(2.0 * Math.PI * gu4);
+                 
+                 const sigma = scatterRadius / 3.0;
+                 const driftH = Math.sin(i * 6.283) * 9999.123;
+                 const driftPhase = (driftH - Math.floor(driftH)) * 2.0 * Math.PI;
+                 const driftAmp = sigma * 0.08 * driftStrength;
+                 
+                 const sx = gx * sigma + Math.sin(time * 0.3 + driftPhase) * driftAmp;
+                 const sy = gy * sigma + Math.cos(time * 0.25 + driftPhase * 1.3) * driftAmp;
+                 const sz = gz * sigma + Math.sin(time * 0.2 + driftPhase * 0.7) * driftAmp;
+                 
+                 // ---- Butterfly's own blue-to-amber blend (shared by all its regions) ----
+                 const bfBr = 0.243, bfBg = 0.651, bfBb = 1.0;
+                 const bfAr = 0.910, bfAg = 0.639, bfAb = 0.239;
+                 const bfColR = bfBr + (bfAr - bfBr) * progress;
+                 const bfColG = bfBg + (bfAg - bfBg) * progress;
+                 const bfColB = bfBb + (bfAb - bfBb) * progress;
+                 
+                 let bx = 0.0, by = 0.0, bz = 0.0;
+                 let colBaseR = bfColR, colBaseG = bfColG, colBaseB = bfColB;
+                 
+                 // ---- Region selection: 6 wing/tail lobes, a body, or (past 0.62) a flower ----
+                 let regCx = 0.0, regCy = -0.05, regEa = 0.06, regEb = 0.68, regAngle = 0.0, isWing = 0.0;
+                 if (u < 0.19344) {
+                   regCx = 0.72; regCy = 0.52; regEa = 0.775; regEb = 0.425; regAngle = 32.0 * deg; isWing = 1.0;
+                 } else if (u < 0.38688) {
+                   regCx = -0.72; regCy = 0.52; regEa = 0.775; regEb = 0.425; regAngle = -32.0 * deg; isWing = 1.0;
+                 } else if (u < 0.49476) {
+                   regCx = 0.62; regCy = -0.28; regEa = 0.525; regEb = 0.35; regAngle = -28.0 * deg; isWing = 1.0;
+                 } else if (u < 0.60264) {
+                   regCx = -0.62; regCy = -0.28; regEa = 0.525; regEb = 0.35; regAngle = 28.0 * deg; isWing = 1.0;
+                 } else if (u < 0.607476) {
+                   regCx = 1.18; regCy = -0.62; regEa = 0.15; regEb = 0.055; regAngle = -55.0 * deg; isWing = 1.0;
+                 } else if (u < 0.612312) {
+                   regCx = -1.18; regCy = -0.62; regEa = 0.15; regEb = 0.055; regAngle = 55.0 * deg; isWing = 1.0;
+                 }
+                 
+                 if (u < 0.62) {
+                   const hr = Math.sin(i * 91.345) * 10000.0;
+                   const rFrac = hr - Math.floor(hr);
+                   const hp = Math.sin(i * 57.234) * 20000.0;
+                   const phiFrac = hp - Math.floor(hp);
+                   const radiusFrac = Math.sqrt(rFrac);
+                   const phi = phiFrac * 2.0 * Math.PI;
+                   const localX = radiusFrac * regEa * Math.cos(phi);
+                   const localY = radiusFrac * regEb * Math.sin(phi);
+                   const cosA = Math.cos(regAngle);
+                   const sinA = Math.sin(regAngle);
+                   const wingLocalX = regCx + localX * cosA - localY * sinA;
+                   const wingLocalY = regCy + localX * sinA + localY * cosA;
+                   bx = wingLocalX * bScale;
+                   by = wingLocalY * bScale;
+                   bz = Math.abs(wingLocalX) * Math.sin(flapAngle) * bScale * isWing;
+                   colBaseR = bfColR;
+                   colBaseG = bfColG;
+                   colBaseB = bfColB;
+                 } else {
+                   const flowerU = (u - 0.62) / 0.38;
+                   const flowerFloat = flowerU * flowerCount;
+                   const flowerIndex = Math.floor(flowerFloat);
+                 
+                   const th1 = Math.sin(i * 63.71) * 10000.0;
+                   const theta = (th1 - Math.floor(th1)) * 2.0 * Math.PI;
+                   const th2 = Math.sin(i * 84.19) * 10000.0;
+                   const rr = th2 - Math.floor(th2);
+                   const petalR = Math.abs(Math.cos(5.0 * theta)) * flowerSize;
+                   const radiusFrac2 = Math.sqrt(rr);
+                   const petalX = radiusFrac2 * petalR * Math.cos(theta);
+                   const petalY = radiusFrac2 * petalR * Math.sin(theta);
+                 
+                   // Flower centers on a spherical shell all around the butterfly - every
+                   // direction and height, not just a flat plane underneath it.
+                   const fh1 = Math.sin(flowerIndex * 17.53 + 11.1) * 10000.0;
+                   const fhTheta = (fh1 - Math.floor(fh1)) * 2.0 * Math.PI;
+                   const fh2 = Math.sin(flowerIndex * 29.13 + 7.7) * 10000.0;
+                   const fhCosPhi = (fh2 - Math.floor(fh2)) * 2.0 - 1.0;
+                   const fhSinPhi = Math.sqrt(Math.max(0.0, 1.0 - fhCosPhi * fhCosPhi));
+                   const fh3 = Math.sin(flowerIndex * 41.91 + 3.3) * 10000.0;
+                   const fhJitter = fh3 - Math.floor(fh3);
+                   const shellR = fieldSpread * (0.65 + 0.35 * fhJitter);
+                   const fieldX = shellR * fhSinPhi * Math.cos(fhTheta);
+                   const fieldZ = shellR * fhSinPhi * Math.sin(fhTheta);
+                   const fieldY = shellR * fhCosPhi + fieldCenterY;
+                 
+                   bx = fieldX + petalX * progress;
+                   by = fieldY + petalY * progress;
+                   bz = fieldZ;
+                 
+                   const fyR = 0.976, fyG = 0.827, fyB = 0.325;
+                   const fpR = 0.976, fpG = 0.416, fpB = 0.686;
+                   colBaseR = fyR + (fpR - fyR) * radiusFrac2;
+                   colBaseG = fyG + (fpG - fyG) * radiusFrac2;
+                   colBaseB = fyB + (fpB - fyB) * radiusFrac2;
+                 }
+                 
+                 // ---- Scatter -> target, with a slow ambient rotation of the whole scene ----
+                 const px = sx + (bx - sx) * progress;
+                 const py = sy + (by - sy) * progress;
+                 const pz = sz + (bz - sz) * progress;
+                 
+                 const rot = time * 0.05;
+                 const cosr = Math.cos(rot);
+                 const sinr = Math.sin(rot);
+                 const finalX = px * cosr - pz * sinr;
+                 const finalZ = px * sinr + pz * cosr;
+                 target.set(finalX, py, finalZ);
+                 
+                 const s4 = Math.sin(i * 3.1415) * 4321.1234;
+                 const shimmerPhase = (s4 - Math.floor(s4)) * 2.0 * Math.PI;
+                 const glow = 0.85 + 0.15 * Math.sin(time * 2.0 + shimmerPhase);
+                 const outR = Math.min(1.0, colBaseR * glow);
+                 const outG = Math.min(1.0, colBaseG * glow);
+                 const outB = Math.min(1.0, colBaseB * glow);
+                 color.setRGB(outR, outG, outB);
+                 
+                 if (i === 0) {
+                   setInfo("Butterfly in a Garden", "Scattered particles bloom into a butterfly surrounded by flowers, then dissolve again.");
+                 }
+                 // USER CODE INJECTION END
+ 
+                 // UPDATE
+                 targets[i].copy(target);
+                 positions[i].lerp(targets[i], 0.1);
+
+                 dummy.position.set(0, 0, 0);
+                 if ('spark' === 'vector') {
+                     const lookDirection = targets[i].clone().sub(positions[i]).normalize().multiplyScalar(2);
+                     if (targets[i].distanceToSquared(positions[i]) > 0.1) {
+                         dummy.lookAt(lookDirection);
+                     }
+                 } else if ('spark' === 'plasma' || 'spark' === 'ink' || 'spark' === 'paint') {
+                     dummy.lookAt(camera.position); // Billboard
+                 } else {
+                     dummy.rotation.set(0, 0, 0);
+                 }
+                 
+                 dummy.updateMatrix();
+                 instancedMesh.setMatrixAt(i, dummy.matrix);
+                 instancedMesh.setColorAt(i, color); // Fix: Use 'color' which user modifies
+            }
+            instancedMesh.instanceColor.needsUpdate = true;
+            if(instancedMesh.geometry.attributes.instanceScale) instancedMesh.geometry.attributes.instanceScale.needsUpdate = true;
+            if(instancedMesh.geometry.attributes.instanceOpacity) instancedMesh.geometry.attributes.instanceOpacity.needsUpdate = true;
+
+            updateGPGPUTargets();
+
+            if (velocityUniforms) {
+                velocityUniforms.uTime.value = time;
+                velocityUniforms.uDeltaTime.value = delta;
+                
+                if (physicsOverrides.gravity) {
+                    velocityUniforms.uGravity.value.copy(physicsOverrides.gravity);
+                } else {
+                    velocityUniforms.uGravity.value.set(0, 0, 0);
+                }
+                if (physicsOverrides.shockwaveCenter && physicsOverrides.shockwaveForce !== null) {
+                    velocityUniforms.uShockwaveCenter.value.copy(physicsOverrides.shockwaveCenter);
+                    velocityUniforms.uShockwaveForce.value = physicsOverrides.shockwaveForce;
+                    velocityUniforms.uShockwaveRadius.value = physicsOverrides.shockwaveRadius;
+                } else {
+                    velocityUniforms.uShockwaveForce.value = 0.0;
+                }
+                if (physicsOverrides.stiffness !== null) {
+                    velocityUniforms.uStiffness.value = physicsOverrides.stiffness;
+                } else {
+                    velocityUniforms.uStiffness.value = STIFFNESS;
+                }
+                if (physicsOverrides.damping !== null) {
+                    velocityUniforms.uDamping.value = physicsOverrides.damping;
+                } else {
+                    velocityUniforms.uDamping.value = DAMPING;
+                }
+                if (physicsOverrides.noiseStrength !== null) {
+                    velocityUniforms.uNoiseStrength.value = physicsOverrides.noiseStrength;
+                } else {
+                    velocityUniforms.uNoiseStrength.value = NOISE_STRENGTH;
+                }
+            }
+
+            gpuCompute.compute();
+
+            const posTexture = gpuCompute.getCurrentRenderTarget(positionVariable).texture;
+            if (material.userData.shader) {
+                material.userData.shader.uniforms.texturePosition.value = posTexture;
+                material.userData.shader.uniforms.gpgpuEnabled.value = 1.0;
+            }
+            if (material.uniforms && material.uniforms.texturePosition) {
+                material.uniforms.texturePosition.value = posTexture;
+                material.uniforms.gpgpuEnabled.value = 1.0;
+            }
+
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instancedMesh.instanceColor.needsUpdate = true;
+
+            composer.render(delta);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+            if (bloomPass) {
+                bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+            }
+            if (typeof hBlurPass !== 'undefined' && hBlurPass && hBlurPass.enabled) {
+                hBlurPass.uniforms['h'].value = 0 / window.innerWidth;
+            }
+            if (typeof vBlurPass !== 'undefined' && vBlurPass && vBlurPass.enabled) {
+                vBlurPass.uniforms['v'].value = 0 / window.innerHeight;
+            }
+        });
+    </script>
+</body>
+</html>
