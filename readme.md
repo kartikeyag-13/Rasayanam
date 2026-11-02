@@ -141,9 +141,9 @@ WS_BROADCAST_INTERVAL=120 uvicorn backend.main:app --port 8000
 
 ## Current data source, provenance & limitations
 
-Rasaynam queries the public [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) for current PM2.5, PM10, CO, NO2 and SO2 concentrations at each station coordinate. It queries the [Open-Meteo Weather API](https://open-meteo.com/en/docs) for current weather covariates. The API's air-quality current conditions are based on atmospheric model data, not a regulatory ground monitor. Rasaynam computes its displayed index using the project's CPCB breakpoint implementation; this should be described as a **CPCB-breakpoint AQI estimate from CAMS model-grid concentrations**, not an official CPCB station AQI.
+Rasayanam queries the public [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) for current PM2.5, PM10, CO, NO2, and SO2 concentrations at each station coordinate. It queries the [Open-Meteo Weather API](https://open-meteo.com/en/docs) for current weather covariates. The API's air-quality current conditions are based on atmospheric model data, not a regulatory ground monitor. Rasayanam computes its displayed index using the project's CPCB breakpoint implementation; this should be described as a **CPCB-breakpoint AQI estimate from CAMS model-grid concentrations**, not an official CPCB station AQI.
 
-Open-Meteo's Air Quality API currently documents a maximum of **7 forecast days**. Rasaynam therefore targets a 7-day forecast, not 10 days. The 7-day ML trajectory recursively applies models trained on 3-hour and 24-hour targets; beyond 48 hours, it is experimental, and error may accumulate. The present rollout persists the latest weather values, so weather-forecast feature injection and multi-horizon backtesting are required before presenting days 3–7 as validated predictions.
+Open-Meteo's Air Quality API currently documents a maximum of **7 forecast days**. Rasayanam therefore targets a 7-day forecast, not 10 days. The 7-day ML trajectory recursively applies models trained on 3-hour and 24-hour targets; beyond 48 hours, it is experimental, and error may accumulate. The present rollout persists the latest weather values, so weather-forecast feature injection and multi-horizon backtesting are required before presenting days 3–7 as validated predictions.
 
 If Open-Meteo is unreachable, `/api/current` falls back to the last row of the 2020–2025 CSV and marks the response `historical_fallback`. Do not present this fallback as today's measured AQI.
 
@@ -151,12 +151,12 @@ If Open-Meteo is unreachable, `/api/current` falls back to the last row of the 2
 
 ## Regional AQI intelligence map
 
-The dashboard includes an interactive Leaflet map for the eight configured locations across NCR, Punjab and Haryana. It combines:
+The dashboard includes an interactive Leaflet map for the eight configured locations across NCR, Punjab, and Haryana. It combines:
 
 - AQI-colored station markers with clickable pollutant details and timestamps.
 - A smoothed heat layer to help compare the sampled AQI values spatially.
 - Illustrative alert halos for sampled locations above AQI 200; these are visual emphasis only, not measured danger-zone boundaries.
-- A time selector for current conditions and model forecasts at +24h, +48h, Day 3, Day 5 and Day 7.
+- A time selector for current conditions and model forecasts at +24h, +48h, Day 3, Day 5, and Day 7.
 - OpenStreetMap basemap tiles with attribution.
 
 The map obtains data from `GET /api/map`. The API returns the current station payloads and each station's 56-point, 3-hour-step forecast. The map is regional and station-sampled: the heat layer interpolates between eight sparse coordinates. It must not be interpreted as street-level pollution, a continuous measured surface, or an official regulatory map. Current pollutant values are Open-Meteo CAMS model-grid estimates where available; fallback records are labelled historical CSV. The seven-day forecast is experimental beyond 48 hours.
