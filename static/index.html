@@ -228,7 +228,7 @@ h1 em{color:#dfc17f}
 .remedy-card .remedy-ingredients{margin-top:12px;padding-top:0;color:#6b7d67;font-weight:500;line-height:1.6}
 .remedy-card .remedy-action{margin-top:auto;padding-top:15px;color:#96734c}
 #apiRemedyGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.journey-nav{position:fixed;z-index:9;left:20px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;padding:12px 10px;border:1px solid rgba(255,255,255,.24);border-radius:28px;background:rgba(24,48,36,.82);color:#f4f1e8;backdrop-filter:blur(10px);transition:opacity .4s ease}
+.journey-nav{position:relative;z-index:9;display:flex;flex-direction:row;justify-content:center;flex-wrap:wrap;gap:8px;width:max-content;max-width:calc(100% - 32px);margin:20px auto 28px;padding:8px 12px;border:1px solid rgba(255,255,255,.24);border-radius:28px;background:rgba(24,48,36,.92);color:#f4f1e8;backdrop-filter:blur(10px);transition:opacity .4s ease}
 .journey-nav a{display:flex;align-items:center;gap:9px;min-height:28px;font:10px "DM Mono",monospace;letter-spacing:.06em;color:#c8d3c5;opacity:.72;white-space:nowrap}
 .journey-nav a:before{content:"";width:7px;height:7px;border:1px solid currentColor;border-radius:50%;flex:none}
 .journey-nav a[aria-current="step"]{color:#e3eeaf;opacity:1}
@@ -240,8 +240,8 @@ body[data-journey="intelligence"]{--ambient-glow:rgba(95,164,124,.15)}
 body[data-journey="forecast"]{--ambient-glow:rgba(113,171,181,.15)}
 body[data-journey="protection"]{--ambient-glow:rgba(216,193,124,.16)}
 .cursor-glow{background:radial-gradient(circle,var(--ambient-glow,rgba(206,228,154,.12)),transparent 68%);transition:background .8s ease}
-@media(max-width:850px){.journey-nav{left:8px;padding:10px 8px}.journey-nav a span{display:none}}
-@media(max-width:560px){.journey-nav{left:50%;top:auto;bottom:10px;transform:translateX(-50%);flex-direction:row;gap:10px;border-radius:24px;padding:8px 12px}.journey-nav a{min-height:22px;font-size:0}.journey-nav a:before{width:8px;height:8px}}
+@media(max-width:850px){.journey-nav{gap:5px;padding:6px 8px}.journey-nav a span{display:none}}
+@media(max-width:560px){.journey-nav{gap:4px;margin:14px auto 20px;padding:4px 6px;border-radius:24px}.journey-nav a{min-height:42px;font-size:0}.journey-nav a:before{width:8px;height:8px}}
 .forecast-empty{align-self:center;width:100%;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
 @media(max-width:800px){#apiRemedyGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){#apiRemedyGrid{grid-template-columns:1fr}}
@@ -283,7 +283,7 @@ img,video,canvas,svg{max-width:100%}
  .topbar{gap:18px}.nav{gap:14px}.nav a{font-size:11px}
 }
 @media(max-width:850px){
- .journey-nav{position:relative;z-index:9;inset:auto;transform:none;display:flex;flex-direction:row;justify-content:center;gap:5px;width:max-content;max-width:calc(100% - 24px);margin:76px auto 0;padding:4px 8px;background:rgba(24,48,36,.9)}
+ .journey-nav{position:relative;z-index:9;inset:auto;transform:none;display:flex;flex-direction:row;justify-content:center;gap:5px;width:max-content;max-width:calc(100% - 24px);margin:14px auto 20px;padding:4px 8px;background:rgba(24,48,36,.92)}
  .journey-nav a{justify-content:center;width:42px;min-width:42px;min-height:42px;padding:8px}.journey-nav a span{display:none}
  .section-head,.map-head{min-width:0}.section-head .status{align-self:flex-start}
  .live-grid{grid-template-columns:minmax(0,1fr)}
@@ -296,7 +296,7 @@ img,video,canvas,svg{max-width:100%}
 @media(max-width:600px){
  .wrap{width:calc(100% - 32px)}
  .topbar{height:66px;padding-inline:16px}.topbar .brand{width:clamp(140px,44vw,172px)}.topbar .nav{margin-left:0}
- .journey-nav{margin-top:66px;margin-bottom:0}
+ .journey-nav{margin-top:14px;margin-bottom:20px}
  .hero{min-height:0;padding:74px 0 82px}.hero-grid{gap:8px}.hero h1{font-size:clamp(44px,12vw,58px);overflow-wrap:anywhere}.hero-copy{font-size:14px}.hero-actions{flex-wrap:wrap}.hero-art{height:280px}
  .section-head{gap:16px;margin-bottom:24px}.section-head .section-title{font-size:clamp(36px,10vw,48px)}
  .panel{padding:clamp(16px,5vw,22px)}.panel-top{align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px}.panel-title{min-width:0;overflow-wrap:anywhere}.station-select{max-width:100%;min-height:42px}
@@ -310,6 +310,11 @@ img,video,canvas,svg{max-width:100%}
 @media(max-width:390px){
  .wrap{width:calc(100% - 24px)}.hero h1{font-size:clamp(42px,11.8vw,48px)}.panel{padding:15px}.chart-tools{gap:4px}.chart-tools button{padding-inline:7px;font-size:9px}.map-layer-toggle{grid-template-columns:minmax(0,1fr)}.map-legend{gap:7px}.map-legend .legend-item{font-size:8px}.journey-nav a{width:38px;min-width:38px}
 }
+.gauge-stack{display:flex;flex:none;flex-direction:column;align-items:center}
+.gauge svg{z-index:0;pointer-events:none}
+.gauge-number{position:relative;z-index:1;text-align:center}
+.gauge-label{margin-top:8px;color:#566a58;text-align:center;line-height:1.5}
+.dark .gauge-label{color:#c4d2c0}
 </style>
 </head>
 <body>
@@ -323,13 +328,6 @@ img,video,canvas,svg{max-width:100%}
   <button class="menu" id="menuBtn" aria-label="Open navigation">☰</button>
   <nav class="nav" id="nav"><a href="#air">The air</a><a href="#map">AQI map</a><a href="#insights">Insights</a><a href="#forecast">Forecast</a><a href="#health">Health</a><a href="#remedies">Home remedies</a><a href="#learn">Explore</a><a class="nav-cta" href="#air">Explore live air ↗</a></nav>
 </header>
-<nav class="journey-nav" id="journeyNav" aria-label="Environmental story">
- <a href="#home" data-stage="atmosphere" aria-label="Atmosphere"><span>01 Atmosphere</span></a>
- <a href="#air" data-stage="pollution" aria-label="Pollution"><span>02 Pollution</span></a>
- <a href="#map" data-stage="intelligence" aria-label="Intelligence"><span>03 Intelligence</span></a>
- <a href="#forecast" data-stage="forecast" aria-label="Forecast"><span>04 Forecast</span></a>
- <a href="#health" data-stage="protection" aria-label="Protection"><span>05 Protection</span></a>
-</nav>
 <main>
 <section class="hero" id="home" data-journey="atmosphere">
  <div class="wrap hero-grid">
@@ -349,16 +347,24 @@ img,video,canvas,svg{max-width:100%}
  </div>
  <div class="hero-bottom"><span class="mono">Ayurveda-inspired design · Evidence-led air intelligence</span><span class="scrollcue mono">Scroll to explore</span><span class="mono">01 — 05</span></div>
 </section>
+<nav class="journey-nav" id="journeyNav" aria-label="Environmental story">
+ <a href="#home" data-stage="atmosphere" aria-label="Atmosphere"><span>01 Atmosphere</span></a>
+ <a href="#air" data-stage="pollution" aria-label="Pollution"><span>02 Pollution</span></a>
+ <a href="#map" data-stage="intelligence" aria-label="Intelligence"><span>03 Intelligence</span></a>
+ <a href="#forecast" data-stage="forecast" aria-label="Forecast"><span>04 Forecast</span></a>
+ <a href="#health" data-stage="protection" aria-label="Protection"><span>05 Protection</span></a>
+</nav>
 <section class="intro" id="story"><div class="wrap">
  <div class="intro-head reveal"><div><div class="section-kicker mono">An old philosophy. A new lens on the air.</div><h2>Observe nature. Understand the <em>air.</em></h2></div><p class="intro-copy">Air quality is more than a number. It is shaped by weather, place, time and human activity. Rasayanam brings those signals together, translating complex environmental data into useful everyday context. Its visual identity draws on Ayurveda's relationship with prakriti (nature), while its readings and forecasts remain grounded in data.</p></div>
- <div class="ayurveda-note reveal"><span class="note-leaf">❧</span><span><b>Inspired by Ayurveda.</b> Built on environmental data. Traditional symbolism informs the design—not the AQI science or medical advice.</span></div>\n <div class="stat-strip reveal"><div class="stat"><strong>46,848</strong><span>Historical observations in the project dataset</span></div><div class="stat"><strong>08</strong><span>Monitoring stations across four regions</span></div><div class="stat"><strong>7d</strong><span>CAMS air-quality forecast horizon</span></div></div>
+ <div class="ayurveda-note reveal"><span class="note-leaf">❧</span><span><b>Inspired by Ayurveda.</b> Built on environmental data. Traditional symbolism informs the design—not the AQI science or medical advice.</span></div>
+ <div class="stat-strip reveal"><div class="stat"><strong>46,848</strong><span>Historical observations in the project dataset</span></div><div class="stat"><strong>08</strong><span>Monitoring stations across four regions</span></div><div class="stat"><strong>7d</strong><span>CAMS air-quality forecast horizon</span></div></div>
 </div></section>
 <section class="live" id="air" data-journey="pollution"><div class="wrap">
  <div class="section-head reveal"><div><div class="section-kicker mono">01 / Live atmosphere</div><h2 class="section-title">What is the air <em>like today?</em></h2></div><div class="status"><span class="dot"></span><span id="connection">Connecting to live service</span></div></div>
  <div class="live-grid">
   <article class="panel dark reveal">
    <div class="panel-top"><span class="panel-title">Air quality index</span><select class="station-select" id="station"><option value="DL_SAFDARJUNG">New Delhi · Safdarjung</option><option value="DL_ANAND_VIHAR">New Delhi · Anand Vihar</option><option value="HR_GURUGRAM_SEC51">Gurugram · Sector 51</option><option value="UP_NOIDA_SEC62">Noida · Sector 62</option><option value="HR_AMBALA_AFS">Ambala</option><option value="HR_HISAR_HAU">Hisar</option><option value="PB_AMRITSAR_GT">Amritsar</option><option value="PB_LUDHIANA_PAU">Ludhiana</option></select></div>
-   <div class="aqi-wrap"><div class="gauge"><svg viewBox="0 0 180 180"><circle class="track" cx="90" cy="90" r="70"/><circle class="value" id="gaugeArc" cx="90" cy="90" r="70"/></svg><div style="text-align:center"><div class="gauge-number" id="aqiValue">—</div><div class="gauge-label">AQI · CAMS model estimate</div></div></div><div class="aqi-desc"><strong id="aqiCategory">Waiting for data</strong><span id="aqiMessage">The latest station reading will appear here when the service connects.</span></div></div><div class="observation-meta"><span class="meta-label">MODEL TIMESTAMP</span><b id="observedAt">Waiting for timestamp…</b><span id="dataFreshness" class="freshness-pill">Checking data source</span></div><small class="source-explainer">CAMS grid concentrations averaged over 24 hours (8 hours for CO) and converted with CPCB breakpoints when hourly coverage is sufficient. This is a model estimate, not an official CPCB station AQI.</small>
+   <div class="aqi-wrap"><div class="gauge-stack"><div class="gauge"><svg viewBox="0 0 180 180" aria-hidden="true"><circle class="track" cx="90" cy="90" r="70"/><circle class="value" id="gaugeArc" cx="90" cy="90" r="70"/></svg><div class="gauge-number" id="aqiValue">—</div></div><div class="gauge-label">AQI · CAMS model estimate</div></div><div class="aqi-desc"><strong id="aqiCategory">Waiting for data</strong><span id="aqiMessage">The latest station reading will appear here when the service connects.</span></div></div><div class="observation-meta"><span class="meta-label">MODEL TIMESTAMP</span><b id="observedAt">Waiting for timestamp…</b><span id="dataFreshness" class="freshness-pill">Checking data source</span></div><small class="source-explainer">CAMS grid concentrations averaged over 24 hours (8 hours for CO) and converted with CPCB breakpoints when hourly coverage is sufficient. This is a model estimate, not an official CPCB station AQI.</small>
    <div class="pollutants"><div class="pollutant"><span>PM2.5</span><b id="pm25">—</b><small>µg/m³</small></div><div class="pollutant"><span>PM10</span><b id="pm10">—</b><small>µg/m³</small></div><div class="pollutant"><span>NO₂</span><b id="no2">—</b><small>µg/m³</small></div><div class="pollutant"><span>SO₂</span><b id="so2">—</b><small>µg/m³</small></div><div class="pollutant"><span>CO</span><b id="co">—</b><small>mg/m³</small></div><div class="pollutant"><span>Temperature</span><b id="temp">—</b><small>°C</small></div></div>
    <div class="advisory"><b>Today's small reminder</b><span id="advisory">Choose a station to explore its latest air-quality reading and health guidance.</span></div><div class="aqi-alert" id="aqiAlert"><span class="alert-icon">⚠</span><span id="aqiAlertText"></span></div>
   </article>

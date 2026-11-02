@@ -288,9 +288,9 @@ Returns `region`, `data_as_of`, `data_status`, `stations[]`, `forecast{station_i
 
 ## Responsive layout and test coverage
 
-The single-page frontend has responsive breakpoints at 1100, 850, 600 and 390 pixels. The section navigation becomes an in-flow row on tablet/mobile; dashboard panels stack, chart tools wrap/scroll, forecast heights scale, and map controls and legend wrap for touchscreens. Map resize and orientation changes call `invalidateSize()`.
+The single-page frontend has responsive breakpoints at 1100, 850, 600 and 390 pixels. The five-section navigator sits in normal document flow after the hero, so it remains reachable without covering dashboard content; labels collapse to accessible touch targets on narrow screens. The AQI number sits above the SVG ring while its model-source label is below the gauge. Dashboard panels stack, chart tools wrap/scroll, forecast heights scale, and map controls and legend wrap for touchscreens. Map resize and orientation changes call `invalidateSize()`.
 
-Automated backend tests use controlled provider responses for success, partial responses, 429, timeout, malformed data and stale-cache paths. API smoke tests run the actual app under local Uvicorn with the provider deliberately offline, checking REST routes, static assets and the WebSocket snapshot. Browser rendering and physical viewport checks require a browser-capable test environment.
+Automated backend tests use controlled provider responses for success, partial responses, 429, timeout, malformed data and stale-cache paths. API smoke tests run the actual app under local Uvicorn with the provider deliberately offline, checking REST routes, static assets and the WebSocket snapshot. Frontend markup regression tests check the in-flow navigator, separated gauge label and absence of literal `\\n`. Browser rendering and physical viewport checks require a browser-capable test environment.
 
 
 ## Forecasting correction (current implementation)

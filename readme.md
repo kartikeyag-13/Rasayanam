@@ -170,7 +170,7 @@ python -c "from pathlib import Path; s=Path('static/index.html').read_text(); a=
 node --check /tmp/rasayanam-inline.js
 ```
 
-Browser viewport testing still needs to be completed in a browser-capable environment.
+The five-section navigator is placed in normal document flow below the hero rather than floating over dashboard cards. At narrow widths its labels collapse while retaining named 42px touch targets. The AQI value is centered over the ring and the CAMS source label sits beneath it. Regression tests also guard against literal escaped newline text in the HTML. Browser viewport rendering still needs a browser-capable environment; this workspace has no browser automation runtime.
 
 **Attribution:** Air-quality inputs and estimates are provided by [Open-Meteo](https://open-meteo.com/) using CAMS data. See the [Air Quality API documentation](https://open-meteo.com/en/docs/air-quality-api) and its data-source notes.
 
