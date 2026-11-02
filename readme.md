@@ -1,8 +1,10 @@
+🏆 **Winner, RootAccess Overnight Sustainability Hackathon 2026, Thapar Institute of Engineering and Technology**
+
 # Rasayanam — AI-Powered Neighborhood Air Quality & Health Advisory System
 
 **Predicting neighborhood-level air pollution before, during, and after Diwali and telling you exactly what to do about it.**
 
-Rasayanam is an all-in-one platform that combines **historical air-quality data**, **weather conditions**, **traffic/cyclical indicators**, and **ML forecasting** to predict air pollution at the neighborhood (monitoring-station) level across the NCR–Punjab–Haryana region. Around it wraps a complete **health companion**: live AQI, interactive pollutant reports, respiratory-health education, guided breathing exercises, herbal teas & home remedies, and a directory of nearby doctors and ENT specialists.
+Rasayanam is an all-in-one platform that combines **historical air-quality data**, **weather conditions**, **traffic/cyclical indicators**, and **ML forecasting** to predict air pollution at the neighborhood (monitoring-station) level across the NCR–Punjab–Haryana region. It wraps around a complete **health companion**: live AQI, interactive pollutant reports, respiratory-health education, guided breathing exercises, herbal teas & home remedies, and a directory of nearby doctors and ENT specialists.
 
 ---
 
@@ -63,6 +65,8 @@ Air pollution in Delhi-NCR, Punjab, and Haryana spikes dramatically around Diwal
 Stations: `DL_SAFDARJUNG`, `DL_ANAND_VIHAR`, `HR_GURUGRAM_SEC51`, `UP_NOIDA_SEC62`, `HR_AMBALA_AFS`, `HR_HISAR_HAU`, `PB_AMRITSAR_GT`, `PB_LUDHIANA_PAU`.
 
 ---
+
+📊 [Pitch deck (PDF)](docs/Rasayanam.pdf)
 
 ## 🛠️ Tech Stack
 
