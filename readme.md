@@ -100,75 +100,8 @@ Our documented historical dataset contains:
 | Real-time communication | WebSockets |
 | Environmental data | Open-Meteo APIs |
 
-## Project structure
 
-```text
-Rasayanam/
-│
-├── backend/
-│   ├── aqi.py
-│   ├── content.py
-│   ├── feed.py
-│   ├── forecast.py
-│   ├── live.py
-│   └── main.py
-│
-├── ml/
-│   ├── artifacts/
-│   ├── features.py
-│   └── train.py
-│
-├── static/
-│   ├── assets/
-│   │   ├── rasayanam-intro.mp4
-│   │   └── rasayanam-wordmark.png
-│   ├── index.html
-│   └── remedy.html
-│
-├── requirements.txt
-├── ARCHITECTURE.md
-└── README.md
-```
-
-## Run it locally
-
-**1. Clone the repository**
-
-```bash
-git clone https://github.com/kartikeyag-13/Rasayanam.git
-cd Rasayanam
-```
-
-**2. Create a virtual environment**
-
-```bash
-python -m venv .venv
-```
-
-Activate it:
-
-```bash
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows
-.venv\Scripts\activate
-```
-
-**3. Install dependencies**
-
-```bash
-pip install -r requirements.txt
-```
-
-**4. Start the application**
-
-```bash
-uvicorn backend.main:app --reload
-```
-
-Visit `http://127.0.0.1:8000` to explore the application.
-
+---
 ## A note on the data
 
 Environmental data needs context.
@@ -191,8 +124,14 @@ Similarly, the health and home-remedy sections are intended for general awarenes
 
 [Live Website](https://rasayanam.onrender.com/) · [GitHub](https://github.com/kartikeyag-13/Rasayanam)
 
+---
+<br>
+<br>
+
+<div align="center">
+ <b>Pas à pas</b>
+</div>
+
 </div al>
 
-<div>
-  
-</div>
+
