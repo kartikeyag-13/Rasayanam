@@ -270,6 +270,12 @@ body.intro-active .topbar .nav,body.intro-active .topbar .menu{opacity:0;pointer
 @media(max-width:560px){.intro-skip{right:16px;bottom:16px}}
 @media(prefers-reduced-motion:reduce){.intro-screen,.topbar .brand,.topbar .nav,.topbar .menu,.intro-active main,.intro-active footer,.doctor-card,.directory-grid{transition:none!important}}
 .orb svg{overflow:visible}
+.orbit-item{position:absolute;z-index:4;display:block;will-change:transform}
+.orbit-item.one{top:70px;right:0}
+.orbit-item.two{bottom:85px;left:-8px}
+.orbit-item.three{bottom:22px;right:30px}
+.orbit-label{position:relative;inset:auto;display:block;max-width:120px;text-align:center;white-space:normal}
+@media(max-width:560px){.orbit-item.one{right:-5px;top:30px}.orbit-item.two{left:-5px;bottom:45px}.orbit-label{max-width:80px}}
 
 /* Responsive pass: keep the existing visual system while preventing narrow
    layouts and fixed story navigation from covering content or controls. */
@@ -345,7 +351,7 @@ img,video,canvas,svg{max-width:100%}
     <span class="mono">Prakriti · Prana · Balance</span>
    </div>
    <div class="orb"><svg viewBox="0 0 400 400" aria-hidden="true"><defs><linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e3efb8"/><stop offset="1" stop-color="#72936d"/></linearGradient></defs><g id="heroLeaf" class="hero-leaf"><path d="M82 242 C95 135 180 64 303 81 C294 204 220 300 112 306 C76 308 57 280 82 242Z" fill="url(#leaf)" opacity=".8"/><path d="M85 290 C156 225 218 162 298 91 M147 234 C130 197 126 165 130 140 M194 192 C232 198 258 188 278 170 M164 219 C186 244 204 263 229 271" fill="none" stroke="#254a35" stroke-width="3" opacity=".7"/><circle cx="95" cy="105" r="7" fill="#e4f2bd"/><circle cx="320" cy="267" r="4" fill="#e4f2bd"/><path d="M50 190 C120 125 205 118 350 155" fill="none" stroke="#e4efc6" stroke-width="1" opacity=".55"/></g></svg></div>
-   <span class="orbit-label one mono">Atmosphere / 01</span><span class="orbit-label two mono">Observe · Understand</span><span class="orbit-label three mono">NCR — Punjab — Haryana</span>
+   <span class="orbit-item one"><span class="orbit-label mono">Atmosphere / 01</span></span><span class="orbit-item two"><span class="orbit-label mono">Observe · Understand</span></span><span class="orbit-item three"><span class="orbit-label mono">NCR — Punjab — Haryana</span></span>
   </div>
  </div>
  <div class="hero-bottom"><span class="mono">Ayurveda-inspired design · Evidence-led air intelligence</span><span class="scrollcue mono">Scroll to explore</span><span class="mono">01 — 05</span></div>
@@ -797,7 +803,7 @@ $('#breathStart').addEventListener('click',startBreathing);
 $('#breathReset').addEventListener('click',()=>stopBreathing(true));
 $('#breathMode').addEventListener('change',e=>{breathMode=e.target.value;stopBreathing(true)});
 let introTransitionTimer=null;
-let heroMotionAnimations=[],heroMotionTimer=null,heroMotionActive=false;
+let heroMotionAnimations=[],heroMotionActive=false;
 function settleLogo(){
  const logo=$('#brandLogo');
  if(!logo)return;
@@ -805,47 +811,61 @@ function settleLogo(){
  logo.style.position='static';logo.style.left='';logo.style.top='';logo.style.width=matchMedia('(max-width:560px)').matches?'146px':'250px';logo.style.opacity='1';logo.style.transform='none';
 }
 function settleHeroComposition(){
- clearTimeout(heroMotionTimer);heroMotionTimer=null;
  heroMotionAnimations.forEach(animation=>animation.cancel());heroMotionAnimations=[];heroMotionActive=false;
+ $$('.orbit-item').forEach(item=>{item.style.transform='';item.style.opacity='';});
 }
-function animateHeroComposition(startTime){
+function animateHeroComposition(startTime,includeLeaf=true,labelDelay=1450){
  settleHeroComposition();
- const art=$('.hero-art'),orb=$('.orb'),leaf=$('#heroLeaf'),labels=$$('.orbit-label');
- if(!art||!orb||!leaf||typeof leaf.animate!=='function'||labels.some(label=>typeof label.animate!=='function'))return;
+ const art=$('.hero-art'),orb=$('.orb'),leaf=$('#heroLeaf'),items=$$('.orbit-item');
+ if(!art||!orb||!leaf||typeof leaf.animate!=='function'||items.some(item=>typeof item.animate!=='function'))return;
  const artRect=art.getBoundingClientRect(),orbRect=orb.getBoundingClientRect();
  const centerX=orbRect.left+orbRect.width/2,centerY=orbRect.top+orbRect.height/2;
- const duration=3600,entryDelay=1450;
- const leafDrop=leaf.animate([
-  {transform:'translate(4px,'+(-Math.max(artRect.height*1.2,360))+'px) rotate(-24deg)',offset:0,easing:'cubic-bezier(.16,.72,.24,1)'},
-  {transform:'translate(14px,16px) rotate(7deg)',offset:.66,easing:'cubic-bezier(.22,.8,.28,1)'},
-  {transform:'translate(-5px,-7px) rotate(-3deg)',offset:.84,easing:'cubic-bezier(.2,.75,.25,1)'},
-  {transform:'translate(0px,0px) rotate(0deg)',offset:1}
- ],{duration:1450,fill:'both'});
- leafDrop.startTime=startTime;heroMotionAnimations.push(leafDrop);
- const orbitAngles=[-Math.PI/2,Math.PI,Math.PI/2],entryAngles=[-Math.PI/2,Math.PI,Math.PI/2],directions=[1,-1,1];
- labels.forEach((label,index)=>{
-  const rect=label.getBoundingClientRect(),finalX=rect.left+rect.width/2-centerX,finalY=rect.top+rect.height/2-centerY;
+ if(includeLeaf){
+  const leafDrop=leaf.animate([
+   {transform:'translate(4px,'+(-Math.max(artRect.height*1.2,360))+'px) rotate(-24deg)',offset:0,easing:'cubic-bezier(.16,.72,.24,1)'},
+   {transform:'translate(14px,16px) rotate(7deg)',offset:.66,easing:'cubic-bezier(.22,.8,.28,1)'},
+   {transform:'translate(-5px,-7px) rotate(-3deg)',offset:.84,easing:'cubic-bezier(.2,.75,.25,1)'},
+   {transform:'translate(0px,0px) rotate(0deg)',offset:1}
+  ],{duration:1450,fill:'both'});
+  leafDrop.startTime=startTime;heroMotionAnimations.push(leafDrop);
+ }
+ const orbitPaths=[
+  {angle:-Math.PI/2,direction:1,x:.40,y:.38,period:52000},
+  {angle:Math.PI/6,direction:1,x:.39,y:.37,period:52000},
+  {angle:Math.PI*5/6,direction:1,x:.38,y:.36,period:52000},
+ ];
+ heroMotionActive=true;
+ items.forEach((item,index)=>{
+  const rect=item.getBoundingClientRect(),finalX=rect.left+rect.width/2-centerX,finalY=rect.top+rect.height/2-centerY;
   const safeX=Math.max(0,Math.min(centerX-artRect.left-rect.width/2,artRect.right-centerX-rect.width/2));
   const safeY=Math.max(0,Math.min(centerY-artRect.top-rect.height/2,artRect.bottom-centerY-rect.height/2));
-  const rx=Math.min(artRect.width*.28,safeX),ry=Math.min(artRect.height*.28,safeY);
+  const path=orbitPaths[index%orbitPaths.length];
+  const rx=Math.min(artRect.width*path.x,safeX),ry=Math.min(artRect.height*path.y,safeY);
   if(rx<12||ry<12)return;
   const point=(angle)=>({x:rx*Math.cos(angle),y:ry*Math.sin(angle)});
-  const entry=point(entryAngles[index]),startX=entry.x*1.2-finalX,startY=entry.y*1.2-finalY;
-  const orbitStart=point(orbitAngles[index]),orbitEnd=point(orbitAngles[index]+directions[index]*Math.PI*3);
-  const animation=label.animate([
-   {transform:'translate('+startX+'px,'+startY+'px)',opacity:0,offset:0,easing:'cubic-bezier(.16,.72,.24,1)'},
-   {transform:'translate('+(orbitStart.x-finalX)+'px,'+(orbitStart.y-finalY)+'px)',opacity:1,offset:.15,easing:'linear'},
-   {transform:'translate('+(orbitEnd.x-finalX)+'px,'+(orbitEnd.y-finalY)+'px)',opacity:1,offset:.78,easing:'cubic-bezier(.22,1,.36,1)'},
-   {transform:'translate(0px,0px)',opacity:1,offset:1}
-  ],{duration,delay:entryDelay,fill:'both',easing:'linear'});
-  animation.startTime=startTime;heroMotionAnimations.push(animation);
+  const target=point(path.angle),targetTransform='translate('+(target.x-finalX).toFixed(3)+'px,'+(target.y-finalY).toFixed(3)+'px)';
+  const entrance=item.animate([
+   {transform:'translate(0px,0px)',offset:0,easing:'cubic-bezier(.22,1,.36,1)'},
+   {transform:targetTransform,offset:1}
+  ],{duration:1650,delay:labelDelay+index*220,fill:'both',easing:'linear'});
+  entrance.startTime=startTime;heroMotionAnimations.push(entrance);
+  entrance.onfinish=()=>{
+   if(!heroMotionActive)return;
+   item.style.transform=targetTransform;
+   entrance.cancel();
+   const keyframes=[];
+   const samples=96;
+   for(let sample=0;sample<=samples;sample++){
+    const angle=path.angle+path.direction*Math.PI*2*sample/samples;
+    const position=sample===0||sample===samples?target:point(angle);
+    const transform=sample===0||sample===samples?targetTransform:'translate('+(position.x-finalX).toFixed(3)+'px,'+(position.y-finalY).toFixed(3)+'px)';
+    keyframes.push({transform,offset:sample/samples});
+   }
+   const orbit=item.animate(keyframes,{duration:path.period,iterations:Infinity,easing:'linear'});
+   heroMotionAnimations.push(orbit);
+  };
  });
- heroMotionActive=heroMotionAnimations.length>1;
- const labelsDone=heroMotionAnimations.slice(1).map(animation=>animation.finished);
- Promise.all(labelsDone).then(settleHeroComposition).catch(()=>{});
- heroMotionTimer=setTimeout(settleHeroComposition,entryDelay+duration+900);
 }
-window.addEventListener('resize',()=>{if(heroMotionActive)settleHeroComposition()},{passive:true});
 function finishIntro(skip=false){
  const screen=$('#introScreen'),video=$('#introVideo'),body=document.body;
  if(!screen)return;
