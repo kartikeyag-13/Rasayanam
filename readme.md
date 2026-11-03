@@ -1,6 +1,6 @@
  <div align="center">
 
-<video src="https://raw.githubusercontent.com/kartikeyag-13/Rasayanam/main/static/assets/rasayanam-intro.mp4" width="100%" controls autoplay muted loop playsinline></video>
+<video src="https://raw.githubusercontent.com/kartikeyag-13/Rasayanam/main/static/assets/rasayanam-intro.mp4" width="100%" controls autoplay loop playsinline></video>
 
 # Rasayanam
 
