@@ -1,6 +1,6 @@
- <div align="center">
+<div align="center">
 
-<video src="https://raw.githubusercontent.com/kartikeyag-13/Rasayanam/main/static/assets/rasayanam-intro.mp4" width="100%" controls autoplay loop playsinline></video>
+https://github.com/user-attachments/assets/f03d1ea8-5cca-4ea9-b76c-73130b416943
 
 # Rasayanam
 
@@ -8,18 +8,13 @@
 
 *Prakriti · Prana · A clearer relationship with the air.*
 
-An attempt to bring together the wisdom of nature, the perspective of Ayurveda and the possibilities of environmental science.
-
-[Explore Rasayanam](https://rasayanam.onrender.com/) · [View Source Code](https://github.com/kartikeyag-13/Rasayanam)
-
-<br/>
-
 **🏆 1st Position — RootAccess Overnight Sustainability Hackathon 2026**
 
 Thapar Institute of Engineering and Technology
 
-</div>
+[Live Website](https://rasayanam.onrender.com/) · [GitHub Repository](https://github.com/kartikeyag-13/Rasayanam)
 
+</div>
 ---
 
 ## The idea behind Rasayanam
