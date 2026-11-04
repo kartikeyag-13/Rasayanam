@@ -12,8 +12,9 @@ https://github.com/user-attachments/assets/f03d1ea8-5cca-4ea9-b76c-73130b416943
 
 Thapar Institute of Engineering and Technology
 
-[Live Website](https://rasayanam.onrender.com) · [GitHub Repository](https://github.com/kartikeyag-13/Rasayanam)
-
+<a href="https://rasayanam.onrender.com/" target="_blank" rel="noopener noreferrer">
+  🌿 Explore Rasayanam
+</a> 
 </div>
 ---
 
