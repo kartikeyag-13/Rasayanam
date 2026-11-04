@@ -7,8 +7,6 @@
      alt="Rasayanam"
      width="500"/>
 
-# Rasayanam
-
 ### Breathe with awareness. Live in better balance.
 
 *Prakriti · Prana · A clearer relationship with the air.*
