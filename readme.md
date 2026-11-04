@@ -1,6 +1,11 @@
 <div align="center">
 
-https://github.com/user-attachments/assets/f03d1ea8-5cca-4ea9-b76c-73130b416943
+
+<div align="center">
+
+<img src="static/assets/rasayanam-wordmark.png"
+     alt="Rasayanam"
+     width="500"/>
 
 # Rasayanam
 
@@ -12,11 +17,10 @@ https://github.com/user-attachments/assets/f03d1ea8-5cca-4ea9-b76c-73130b416943
 
 Thapar Institute of Engineering and Technology
 
-<a href="https://rasayanam.onrender.com" target="_blank" rel="noopener noreferrer">
-  🌿 Explore Rasayanam
-</a> 
+[🌿 Explore the Live Website](https://rasayanam.onrender.com/) ·
+[💻 GitHub Repository](https://github.com/kartikeyag-13/Rasayanam)
+
 </div>
----
 
 ## The idea behind Rasayanam
 
