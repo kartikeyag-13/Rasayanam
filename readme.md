@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/f03d1ea8-5cca-4ea9-b76c-73130b416943
 
 Thapar Institute of Engineering and Technology
 
-<a href="https://rasayanam.onrender.com/" target="_blank" rel="noopener noreferrer">
+<a href="https://rasayanam.onrender.com" target="_blank" rel="noopener noreferrer">
   🌿 Explore Rasayanam
 </a> 
 </div>
